@@ -15,7 +15,6 @@ from regtracker.enrich.enrich import DEFAULT_PROMPT_VERSION, enrich_pending
 from regtracker.enrich.llm_client import OpenAICompatibleLLM, load_llm_config
 from regtracker.ingest.fetch import ingest_all
 from regtracker.parse.stage import parse_pending
-from regtracker.rag.answer import load_rag_config
 
 DEFAULT_FIXTURE_DB = Path("data/fixture.duckdb")
 DEFAULT_SNAPSHOT_DIR = Path("data/snapshot")
@@ -182,6 +181,7 @@ def index(
     """Chunk the latest version of each document and embed the chunks (cached by text hash)."""
     from regtracker.index.embed import E5Embedder
     from regtracker.index.stage import build_index
+    from regtracker.rag.answer import load_rag_config
 
     settings = get_settings()
     rag = load_rag_config()
@@ -202,7 +202,7 @@ def ask(
     """Answer a question with citations (refuses when the evidence is weak)."""
     from regtracker.index.embed import E5Embedder
     from regtracker.index.search import Filters, SearchIndex
-    from regtracker.rag.answer import Answerer, source_urls
+    from regtracker.rag.answer import Answerer, load_rag_config, source_urls
 
     settings = get_settings()
     rag = load_rag_config()
