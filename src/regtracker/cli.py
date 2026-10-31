@@ -5,6 +5,8 @@ from rich.console import Console
 
 from regtracker.common.config import get_settings, load_instruments
 from regtracker.common.db import TABLES, warehouse
+from regtracker.common.http import PoliteClient
+from regtracker.ingest.fetch import ingest_all
 
 app = typer.Typer(help="EU Regulation Change Tracker", no_args_is_help=True)
 console = Console()
@@ -34,9 +36,37 @@ def sources() -> None:
 
 
 @app.command()
-def ingest(doc: str = typer.Option(None, help="doc_id, or omit for all")) -> None:
-    """Discover and download versions (week 1)."""
-    _todo("ingest", 1)
+def ingest(
+    doc: str | None = typer.Option(None, help="doc_id from configs/sources.yml"),
+    all_docs: bool = typer.Option(False, "--all", help="Ingest every configured instrument"),
+) -> None:
+    """Discover and download new versions. Without options, ingests everything."""
+    instruments = load_instruments()
+    if doc and all_docs:
+        raise typer.BadParameter("use either --doc or --all, not both")
+    if doc:
+        instruments = [i for i in instruments if i.doc_id == doc]
+        if not instruments:
+            raise typer.BadParameter(f"unknown doc_id {doc!r}; see `regtracker sources`")
+
+    settings = get_settings()
+    with warehouse(settings.warehouse_path) as con, PoliteClient(settings) as client:
+        reports = ingest_all(con, client, instruments, settings.raw_dir)
+
+    for r in reports:
+        if r.error:
+            console.print(f"[red]{r.doc_id:10} failed:[/red] {r.error}")
+            continue
+        line = f"{r.doc_id:10} {r.discovered} discovered, {r.new} new, {r.already_known} known"
+        if r.duplicate_content:
+            line += f", {r.duplicate_content} duplicate content"
+        console.print(line)
+        for item in r.unavailable:
+            console.print(f"[yellow]  unavailable:[/yellow] {item}")
+    total_new = sum(r.new for r in reports)
+    console.print(f"[green]{total_new} new versions[/green]")
+    if any(r.error for r in reports):
+        raise typer.Exit(code=1)
 
 
 @app.command()
