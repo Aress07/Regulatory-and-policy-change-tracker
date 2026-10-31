@@ -19,3 +19,29 @@ instruments:
   - doc_id: nis2
     celex_base: "32022L2555"
     doc_type: directive
+  # Added 2026-10-31 (ADR-002): the six above have no pair of English consolidated versions.
+  - doc_id: eidas
+    celex_base: "32014R0910"
+    doc_type: regulation
+  - doc_id: eprivacy
+    celex_base: "32002L0058"
+    doc_type: directive
+  - doc_id: eecc
+    celex_base: "32018L1972"
+    doc_type: directive
+  # Added 2026-10-31 (ADR-002, widening): the trio above yielded only 15 real changes.
+  - doc_id: open_internet
+    celex_base: "32015R2120"
+    doc_type: regulation
+  - doc_id: avmsd
+    celex_base: "32010L0013"
+    doc_type: directive
+  - doc_id: roaming
+    celex_base: "32012R0531"
+    doc_type: regulation
+  - doc_id: telecom_framework
+    celex_base: "32002L0021"
+    doc_type: directive
+  - doc_id: universal_service
+    celex_base: "32002L0022"
+    doc_type: directive
