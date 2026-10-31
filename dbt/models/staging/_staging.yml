@@ -1,0 +1,58 @@
+version: 2
+
+models:
+  - name: stg_documents
+    columns:
+      - name: doc_id
+        data_tests: [unique, not_null]
+  - name: stg_document_versions
+    columns:
+      - name: version_id
+        data_tests: [unique, not_null]
+      - name: doc_id
+        data_tests:
+          - not_null
+          - relationships: {arguments: {to: ref('stg_documents'), field: doc_id}}
+      - name: content_hash
+        data_tests: [not_null]
+      - name: parse_status
+        data_tests:
+          - accepted_values: {arguments: {values: [parsed, repealed, failed, pending]}}
+  - name: stg_sections
+    columns:
+      - name: section_id
+        data_tests: [unique, not_null]
+      - name: version_id
+        data_tests:
+          - not_null
+          - relationships: {arguments: {to: ref('stg_document_versions'), field: version_id}}
+      - name: section_type
+        data_tests:
+          - accepted_values: {arguments: {values: [article, annex, recital]}}
+      - name: text_hash
+        data_tests: [not_null]
+  - name: stg_changes
+    columns:
+      - name: change_id
+        data_tests: [unique, not_null]
+      - name: change_type
+        data_tests:
+          - not_null
+          - accepted_values: {arguments: {values: [added, removed, modified, renumbered]}}
+      - name: from_version
+        data_tests:
+          - relationships: {arguments: {to: ref('stg_document_versions'), field: version_id}}
+      - name: to_version
+        data_tests:
+          - relationships: {arguments: {to: ref('stg_document_versions'), field: version_id}}
+  - name: stg_enrichments
+    columns:
+      - name: change_id
+        data_tests:
+          - relationships: {arguments: {to: ref('stg_changes'), field: change_id}}
+      - name: status
+        data_tests:
+          - accepted_values: {arguments: {values: [success, failed]}}
+      - name: impact
+        data_tests:
+          - accepted_values: {arguments: {values: [low, medium, high]}}

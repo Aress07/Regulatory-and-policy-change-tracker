@@ -231,3 +231,6 @@ dbt/target/
 dbt/logs/
 dbt/dbt_packages/
 .dagster/
+
+# dbt anonymous usage id
+dbt/.user.yml

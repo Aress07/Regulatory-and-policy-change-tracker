@@ -1,4 +1,4 @@
-.PHONY: setup lint format typecheck test check init ingest parse diff enrich index app api
+.PHONY: setup lint format typecheck test check init ingest parse diff enrich index dbt dbt-fixture app api
 
 setup:
 	uv sync --all-extras || (python -m venv .venv && . .venv/bin/activate && pip install -e ".[dev,llm,ml,app,pipeline]")
@@ -25,6 +25,14 @@ init:
 
 ingest parse diff enrich index:
 	regtracker $@
+
+dbt:
+	dbt build --project-dir dbt --profiles-dir dbt
+
+# dbt against a database built from tests/fixtures (what CI runs; no network)
+dbt-fixture:
+	regtracker fixture-db --out data/fixture.duckdb
+	WAREHOUSE_PATH=data/fixture.duckdb dbt build --project-dir dbt --profiles-dir dbt
 
 app:
 	streamlit run dashboard/app.py

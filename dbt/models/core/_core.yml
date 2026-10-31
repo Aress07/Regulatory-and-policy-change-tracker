@@ -1,0 +1,15 @@
+version: 2
+
+models:
+  - name: dim_documents
+    columns:
+      - name: doc_id
+        data_tests: [unique, not_null]
+  - name: fct_changes
+    columns:
+      - name: change_id
+        data_tests: [unique, not_null]
+  - name: fct_section_versions
+    columns:
+      - name: section_id
+        data_tests: [unique, not_null]

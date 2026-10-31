@@ -1,0 +1,9 @@
+# Run from the repo root: dbt build --project-dir dbt --profiles-dir dbt
+# The warehouse path comes from WAREHOUSE_PATH (CI points it at a fixture database).
+regtracker:
+  target: dev
+  outputs:
+    dev:
+      type: duckdb
+      path: "{{ env_var('WAREHOUSE_PATH', 'data/warehouse.duckdb') }}"
+      threads: 1

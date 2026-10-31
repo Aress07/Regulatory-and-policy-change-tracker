@@ -1,0 +1,18 @@
+name: regtracker
+version: "0.1.0"
+config-version: 2
+profile: regtracker
+
+model-paths: ["models"]
+test-paths: ["tests"]
+target-path: target
+clean-targets: [target, dbt_packages]
+
+models:
+  regtracker:
+    staging:
+      +materialized: view
+    core:
+      +materialized: table
+    marts:
+      +materialized: table
