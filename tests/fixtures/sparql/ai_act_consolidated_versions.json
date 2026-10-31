@@ -1,0 +1,39 @@
+{
+  "head": {
+    "link": [],
+    "vars": [
+      "celex",
+      "date"
+    ]
+  },
+  "results": {
+    "distinct": false,
+    "ordered": true,
+    "bindings": [
+      {
+        "celex": {
+          "type": "literal",
+          "datatype": "http://www.w3.org/2001/XMLSchema#string",
+          "value": "02024R1689-20240712"
+        },
+        "date": {
+          "type": "literal",
+          "datatype": "http://www.w3.org/2001/XMLSchema#date",
+          "value": "2024-07-12"
+        }
+      },
+      {
+        "celex": {
+          "type": "literal",
+          "datatype": "http://www.w3.org/2001/XMLSchema#string",
+          "value": "02024R1689-20260727"
+        },
+        "date": {
+          "type": "literal",
+          "datatype": "http://www.w3.org/2001/XMLSchema#date",
+          "value": "2026-07-27"
+        }
+      }
+    ]
+  }
+}
