@@ -1,0 +1,2 @@
+# Real source documents: keep bytes exactly as downloaded
+tests/fixtures/** -text
