@@ -2,7 +2,8 @@
 
 Read the `regtracker-conventions` skill before any task, and the stage skill that matches the work
 (`regtracker-ingest-parse-diff`, `regtracker-enrichment-groq`, `regtracker-rag-eval`, `regtracker-dashboard-deploy`).
-The roadmap is `docs/execution-plan.md`. Current focus: **Week 1, ingestion**.
+The roadmap is `docs/execution-plan.md`. Current focus: **shipping v1** (push, deploy, LLM-budget tasks, polish).
+When resuming, start from the "Status" section at the top of `docs/execution-plan.md`.
 
 ## Always
 - Diffing is deterministic. The LLM only explains changes the diff found.

@@ -7,6 +7,53 @@ A pipeline that ingests EU digital and data regulations, versions them, detects 
 
 ---
 
+## Status (updated 2026-10-31): read this first when resuming
+
+**Where things stand.** Weeks 0-6 are implemented and committed. The project is code-complete but not
+"done" per section 0.4: deployment, demo video, verified labels and `v1.0.0` are open.
+
+**Deviations from the plan below (already decided, do not revisit):**
+- Corpus widened to 14 instruments / 27 consolidated versions / 107 real changes, because most of the
+  six headline acts have no pair of English consolidated versions (ADR-002). Added eIDAS, ePrivacy, EECC.
+- UI is **FastAPI + React** (`frontend/`, served by FastAPI from one Docker image on port 7860),
+  not Streamlit (ADR-004). Read "Streamlit" in sections 10, 11.2 and 13 as "React web app"; the
+  deployment target is a Hugging Face Space (Docker SDK), not Streamlit Community Cloud.
+- BM25 is implemented in Python, not DuckDB FTS (ADR-003).
+- Real LLM runs use Groq (`openai/gpt-oss-20b` / `-120b`), key in `.env` as `LLM_API_KEY`.
+- Eval gold labels in `eval/datasets/` are LLM-drafted (`status=draft`); metrics are provisional
+  until the user verifies them.
+
+**Git.** Branch `main`. Pushed up to `070acee`. Commits `a0ddaf1`, `64a1e0f`, `a849e71` (FastAPI JSON
+API, React frontend, Docker + CI for frontend/image) are **local only**: push only on the user's
+explicit go-ahead, then confirm the new `frontend` and `docker` CI jobs pass. No co-author trailer.
+
+**Next steps, in order:**
+1. **Push** the three local commits (after the user says so) and check CI (`check`, `dbt`, `frontend`, `docker`).
+2. **Optional UI design pass** (the user was offered: component library, sidebar navigation, landing page,
+   cleaner diff view). Not yet decided.
+3. **Deploy** (user-owned, Claude can guide): create a Hugging Face dataset repo and a Docker Space;
+   GitHub repo variables `HF_DATASET_REPO` and `USER_AGENT` (same value as in `.env`), secret `HF_TOKEN`;
+   `regtracker snapshot --upload`; check the Space from a fresh browser. Then tick 0.4 "live at a public URL".
+4. **LLM-budget tasks** (one Groq daily budget each, ~1.8K tokens/change):
+   - `regtracker enrich` for the remaining 25 of 107 changes (82 enriched).
+   - `python eval/run_eval.py --suite answers` (end-to-end cited answers; not run yet).
+   - Prompt v2 experiment: sector-specific instruments should get their sector instead of "all";
+     few-shot for removed obligations/penalties (see `docs/eval-report.md` section 7). Bump `prompt_version`.
+5. **User verifies draft labels** (`docs/labeling-guide.md`), then rerun `eval/run_eval.py --suite all`
+   and refresh `docs/eval-report.md` and the README table.
+6. **Polish:** README screenshot/GIF, 2-3 minute demo video, fill section 16 with real numbers,
+   update `CHANGELOG.md`, tag `v1.0.0`.
+
+**Run locally:** `make demo` (fixture warehouse) or `make app` / `make api` (real warehouse) on
+http://localhost:8000; `make frontend-dev` for Vite on :5173. Before saying a task is done: `make check`,
+`dbt build --project-dir dbt` for pipeline changes, `npm test && npm run build` in `frontend/` for UI changes.
+
+**Current results (provisional, draft labels):** retrieval hybrid MRR 0.975 (BM25 0.869, vector 0.927);
+refusal gate 25/25 on test (`min_cosine` 0.8313); impact accuracy 0.568, within-one 0.973; topic micro-F1
+0.624; sector micro-F1 0.253; 1,810 tokens/change, shadow cost $0.37 per 1,000 changes.
+
+---
+
 ## 0. Project definition
 
 ### 0.1 Problem statement
@@ -42,11 +89,11 @@ Consolidated versions use CELEX numbers of the form `0` + year + type + number +
 **Risk to plan for:** real amendments are infrequent, so you may have few real changes to show. Mitigations are in section 9 (amending acts, corrigenda, Commission proposals, and clearly labeled synthetic test changes).
 
 ### 0.4 Definition of done (v1)
-- [ ] Scheduled pipeline ingests, versions, parses, and diffs documents without manual steps
+- [x] Scheduled pipeline ingests, versions, parses, and diffs documents without manual steps
 - [ ] Every change has a plain-language summary, topic tags, sector tags, and an impact rating
-- [ ] Cited Q&A that refuses when retrieval is weak
+- [x] Cited Q&A that refuses when retrieval is weak
 - [ ] Dashboard live at a public URL
-- [ ] Evaluation report with real numbers
+- [x] Evaluation report with real numbers
 - [ ] README with architecture diagram, setup instructions, and a 2-3 minute demo video
 
 ---
@@ -576,7 +623,7 @@ Write `docs/eval-report.md` with the tables, an honest "failure analysis" sectio
 
 ### Done when
 - [ ] Public dashboard URL works from a fresh browser
-- [ ] Eval report published with real numbers
+- [x] Eval report published with real numbers
 - [ ] README lets a stranger run the project in under 10 minutes
 
 ---
@@ -624,41 +671,41 @@ Write `docs/eval-report.md` with the tables, an honest "failure analysis" sectio
 ## 13. Week-by-week checklist (print this)
 
 **Week 0 (2 days): Setup**
-- [ ] Repo, tooling, CI, Ollama, ADR-001
+- [x] Repo, tooling, CI, Ollama, ADR-001
 
 **Week 1: Ingestion**
-- [ ] Cellar access understood, config file, HTTP client
-- [ ] Version discovery, download, hashing, idempotency
-- [ ] CLI + tests + `docs/sources.md`
+- [x] Cellar access understood, config file, HTTP client
+- [x] Version discovery, download, hashing, idempotency
+- [x] CLI + tests + `docs/sources.md`
 
 **Week 2: Parse + diff + dbt**
-- [ ] Parser with golden counts
-- [ ] Normalization + diff engine + renumbering detection
-- [ ] dbt models + tests + freshness
-- [ ] Plan for sufficient real changes (section 9)
+- [x] Parser with golden counts
+- [x] Normalization + diff engine + renumbering detection
+- [x] dbt models + tests + freshness
+- [x] Plan for sufficient real changes (section 9)
 
 **Week 3: Enrichment**
-- [ ] LLM client with cache and logging
-- [ ] Pydantic schema + versioned prompt
-- [ ] Batch job + failure handling + shadow cost
-- [ ] 20 changes labeled
+- [x] LLM client with cache and logging
+- [x] Pydantic schema + versioned prompt
+- [x] Batch job + failure handling + shadow cost
+- [x] 20 changes labeled
 
 **Week 4: Retrieval + RAG**
-- [ ] Chunking + embeddings
-- [ ] Hybrid search with RRF
-- [ ] Cited answers + citation validator + refusal gate
-- [ ] FastAPI + tests
-- [ ] 40+10 question set and baseline metrics
+- [x] Chunking + embeddings
+- [x] Hybrid search with RRF
+- [x] Cited answers + citation validator + refusal gate
+- [x] FastAPI + tests
+- [x] 40+10 question set and baseline metrics
 
 **Week 5: Product**
-- [ ] Streamlit pages
-- [ ] Dagster assets + checks
-- [ ] GitHub Actions scheduled ingest + snapshot upload
-- [ ] RSS / email digest
+- [x] Streamlit pages (replaced by the React web app, ADR-004)
+- [x] Dagster assets + checks
+- [x] GitHub Actions scheduled ingest + snapshot upload
+- [x] RSS / email digest
 
 **Week 6: Ship**
 - [ ] Finish labeling, run all experiments
-- [ ] Eval report with failure analysis
+- [x] Eval report with failure analysis
 - [ ] Deploy (Streamlit Cloud + HF snapshot)
 - [ ] README, diagram, demo video, `v1.0.0`
 - [ ] Resume bullets filled with real numbers
