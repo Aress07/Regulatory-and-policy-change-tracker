@@ -7,16 +7,16 @@ Idempotency rules:
 """
 
 import hashlib
-import uuid
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
+from datetime import datetime
 from pathlib import Path
 
 import duckdb
 
 from regtracker.common.config import Instrument
 from regtracker.common.http import PoliteClient
+from regtracker.common.runs import log_run, new_run_id, utcnow
 from regtracker.ingest.discover import ConsolidatedVersion, discover_versions
 
 XHTML = "application/xhtml+xml"
@@ -80,7 +80,7 @@ def ingest_instrument(
     client: PoliteClient,
     inst: Instrument,
     raw_dir: Path,
-    now: Callable[[], datetime] = lambda: datetime.now(UTC).replace(tzinfo=None),
+    now: Callable[[], datetime] = utcnow,
 ) -> IngestReport:
     """Discover, download and store every new version of one instrument."""
     report = IngestReport(doc_id=inst.doc_id)
@@ -132,7 +132,7 @@ def ingest_instrument(
     return report
 
 
-def log_run(
+def _log_ingest(
     con: duckdb.DuckDBPyConnection,
     run_id: str,
     report: IngestReport,
@@ -142,19 +142,16 @@ def log_run(
     problems = [f"unavailable: {', '.join(report.unavailable)}"] if report.unavailable else []
     if report.error:
         problems.insert(0, report.error)
-    con.execute(
-        "INSERT INTO pipeline_runs (run_id, stage, started_at, finished_at, status, rows_in, "
-        "rows_out, error) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-        [
-            run_id,
-            f"ingest:{report.doc_id}",
-            started_at,
-            finished_at,
-            "failed" if report.error else "success",
-            report.discovered,
-            report.new,
-            "; ".join(problems) or None,
-        ],
+    log_run(
+        con,
+        run_id=run_id,
+        stage=f"ingest:{report.doc_id}",
+        started_at=started_at,
+        finished_at=finished_at,
+        status="failed" if report.error else "success",
+        rows_in=report.discovered,
+        rows_out=report.new,
+        error="; ".join(problems) or None,
     )
 
 
@@ -163,10 +160,10 @@ def ingest_all(
     client: PoliteClient,
     instruments: list[Instrument],
     raw_dir: Path,
-    now: Callable[[], datetime] = lambda: datetime.now(UTC).replace(tzinfo=None),
+    now: Callable[[], datetime] = utcnow,
 ) -> list[IngestReport]:
     """Ingest each instrument; one failure is logged and does not stop the others."""
-    run_id = uuid.uuid4().hex
+    run_id = new_run_id()
     reports = []
     for inst in instruments:
         started = now()
@@ -174,6 +171,6 @@ def ingest_all(
             report = ingest_instrument(con, client, inst, raw_dir, now)
         except Exception as exc:  # logged to pipeline_runs, then reported by the caller
             report = IngestReport(doc_id=inst.doc_id, error=f"{type(exc).__name__}: {exc}")
-        log_run(con, run_id, report, started, now())
+        _log_ingest(con, run_id, report, started, now())
         reports.append(report)
     return reports

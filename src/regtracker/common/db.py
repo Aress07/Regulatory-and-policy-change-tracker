@@ -78,6 +78,14 @@ CREATE TABLE IF NOT EXISTS chunks (
   embedding FLOAT[384]
 );
 
+-- Columns added after the first schema; ADD COLUMN IF NOT EXISTS keeps existing warehouses valid.
+ALTER TABLE sections ADD COLUMN IF NOT EXISTS amended_by VARCHAR[];   -- CELEX of amending acts
+ALTER TABLE changes ADD COLUMN IF NOT EXISTS old_section_key VARCHAR; -- differs only if renumbered
+ALTER TABLE changes ADD COLUMN IF NOT EXISTS section_type VARCHAR;
+-- parse_status: parsed | repealed | failed
+ALTER TABLE document_versions ADD COLUMN IF NOT EXISTS parse_status VARCHAR;
+ALTER TABLE document_versions ADD COLUMN IF NOT EXISTS repealed_by VARCHAR[];
+
 CREATE TABLE IF NOT EXISTS pipeline_runs (
   run_id VARCHAR NOT NULL,
   stage VARCHAR NOT NULL,
