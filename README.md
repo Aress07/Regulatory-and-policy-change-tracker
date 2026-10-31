@@ -91,7 +91,18 @@ Quality gates: `make check` (ruff, mypy, pytest) and `make dbt-fixture`.
 
 See [docs/eval-report.md](docs/eval-report.md) for full tables and failure analysis.
 
-<!-- EVAL-SUMMARY -->
+Measured on 2026-10-31. **Labels and questions are LLM-drafted and not yet human-verified, so
+these numbers are provisional.**
+
+| Component | Result |
+|---|---|
+| Diff | 27/27 versions match independent article counts; 0 false positives in the manual audit after fixes |
+| Retrieval (hybrid, 40 questions) | hit@1 0.950, hit@5 1.000, MRR 0.975 (BM25 alone 0.850, vector alone 0.923) |
+| Refusal gate (test split) | 20/20 in-scope answered, 5/5 out-of-scope refused |
+| Impact rating (37 changes) | accuracy 0.568, within one level 0.973 |
+| Topics (37 changes) | micro F1 0.624, macro F1 0.646 |
+| Sectors (37 changes) | micro F1 0.253 (definition mismatch, see report) |
+| Cost | 1,810 tokens/change, $0.37 shadow cost per 1,000 changes, $0 actual |
 
 ## Limitations
 

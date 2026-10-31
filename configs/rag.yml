@@ -4,6 +4,6 @@ top_k: 5
 chunk_max_tokens: 300
 # Refusal gate: if the best cosine similarity (E5, query vs passage) is below this, the LLM
 # is not called and the closest passages are returned with "not enough evidence".
-min_cosine: 0.80
+min_cosine: 0.845  # tuned on the dev split, 2026-10-31 (docs/eval-report.md)
 max_question_chars: 500
 prompt_version: qa-v1
