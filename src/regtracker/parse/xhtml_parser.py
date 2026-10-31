@@ -137,6 +137,11 @@ def _merge_labels(lines: list[str]) -> list[str]:
     return merged
 
 
+def _clean_heading(text: str) -> str | None:
+    """Heading text without consolidation markers (e.g. "►M2 Security of processing ◄")."""
+    return normalize_text(_MARKER.sub("", text)) or None
+
+
 def _document_title(root: HtmlElement) -> str | None:
     first = root.xpath('//p[contains(concat(" ", @class, " "), " title-doc-first ")]')
     last = root.xpath('//p[contains(concat(" ", @class, " "), " title-doc-last ")]')
@@ -168,7 +173,7 @@ def _parse_modern(root: HtmlElement) -> list[Section]:
                 continue  # article text quoted inside an annex
             number = m.group(1)
             heading_el = el.xpath('./div[contains(concat(" ", @class, " "), " eli-title ")]')
-            heading = normalize_text(heading_el[0].text_content()) if heading_el else None
+            heading = _clean_heading(heading_el[0].text_content()) if heading_el else None
             body = _lines(el, skip={"title-article-norm", "eli-title"})
             sections.append(
                 Section(
@@ -193,7 +198,7 @@ def _parse_modern(root: HtmlElement) -> list[Section]:
                 './/p[starts-with(@class, "title-annex-2") '
                 'or starts-with(@class, "title-gr-seq-level-1")][1]'
             )
-            heading = normalize_text(subtitle[0].text_content()) if subtitle else None
+            heading = _clean_heading(subtitle[0].text_content()) if subtitle else None
             body = _lines(el, skip={"title-annex-1", "separator-annex"})
             sections.append(
                 Section(
@@ -279,7 +284,7 @@ def _parse_legacy(root: HtmlElement) -> list[Section]:
                 and current.heading is None
                 and not current.blocks
             ):
-                current.heading = normalize_text(child.text_content())
+                current.heading = _clean_heading(child.text_content())
             else:
                 current.blocks.append(child)
     close()

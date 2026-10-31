@@ -23,13 +23,15 @@ class IndexReport:
     embedded: int  # cache misses actually computed
 
 
-def build_index(
+ChunkMeta = tuple[str, str, object, str, str, bool]  # doc_id, version_id, date, key, type, latest
+
+
+def collect_chunks(
     con: duckdb.DuckDBPyConnection,
-    embedder: Embedder,
     max_tokens: int = DEFAULT_MAX_TOKENS,
     include_history: bool = False,
-) -> IndexReport:
-    started = utcnow()
+) -> tuple[int, list[tuple[Chunk, ChunkMeta]]]:
+    """(number of sections, chunks with metadata) without writing anything."""
     rows = con.execute(
         """
         WITH repealed AS (
@@ -53,11 +55,22 @@ def build_index(
         [include_history],
     ).fetchall()
 
-    chunks: list[tuple[Chunk, tuple[object, ...]]] = []
+    chunks: list[tuple[Chunk, ChunkMeta]] = []
     for sid, vid, doc, vdate, latest, key, stype, number, heading, text, name in rows:
         crumb = breadcrumb(name, stype, number, heading)
-        meta = (doc, vid, vdate, key, stype, latest)
+        meta: ChunkMeta = (doc, vid, vdate, key, stype, latest)
         chunks.extend((c, meta) for c in chunk_section(sid, crumb, text, max_tokens))
+    return len(rows), chunks
+
+
+def build_index(
+    con: duckdb.DuckDBPyConnection,
+    embedder: Embedder,
+    max_tokens: int = DEFAULT_MAX_TOKENS,
+    include_history: bool = False,
+) -> IndexReport:
+    started = utcnow()
+    n_sections, chunks = collect_chunks(con, max_tokens, include_history)
 
     vectors, misses = embed_passages_cached(con, embedder, [c.text for c, _ in chunks])
 
@@ -80,7 +93,7 @@ def build_index(
         con.execute("ROLLBACK")
         raise
 
-    report = IndexReport(sections=len(rows), chunks=len(chunks), embedded=misses)
+    report = IndexReport(sections=n_sections, chunks=len(chunks), embedded=misses)
     log_run(
         con,
         run_id=new_run_id(),

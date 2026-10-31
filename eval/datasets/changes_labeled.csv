@@ -1,0 +1,46 @@
+change_id,doc_id,section_key,change_type,topics,sectors,impact,status,notes
+ca56e43e3fded04958f9,avmsd,art_13,modified,other|competition,other,high,draft,New 30% European-works quota and prominence duty for all on-demand services.
+c9d4053a49e6af674904,eecc,art_40,removed,cybersecurity,telecom,high,draft,Network security obligations removed from the EECC (text-only reading; they moved to NIS2).
+f5b70328e08e821bfd9d,eidas,art_47,modified,other,public_sector|all,low,draft,Cross-reference 5c(7) -> 5c(8) only.
+dbcb57310a450dcea478,eprivacy,art_3,modified,scope_definitions|data_protection,telecom,medium,draft,Scope extended to networks supporting data collection and identification devices; paragraphs 2-3 dropped.
+6d1257eb53e24a1ee77b,open_internet,art_8,removed,other,telecom,low,draft,Spent amending provision to Directive 2002/22/EC removed.
+011b36b489639e08dfdd,roaming,art_15,modified,transparency,telecom,low,draft,Wording of the automatic roaming message; per-megabyte expression dropped.
+e43545de69f28f90008b,telecom_framework,art_7a,added,competition|other,telecom,medium,draft,New Commission/BEREC procedure on remedies imposed by national regulators.
+b65c5408ca000a0520ab,universal_service,art_1,modified,scope_definitions|transparency,telecom,medium,draft,Removes the statement on access conditions and the related information obligation from paragraph 3.
+66b84f9a4aed771dd5d8,avmsd,art_4,modified,scope_definitions,other,medium,draft,"Anti-circumvention procedure widened from broadcasters to all media service providers."
+8dd4d46453b52d15d043,eecc,art_41,removed,cybersecurity|enforcement_penalties,telecom,high,draft,Enforcement powers for network security removed (paired with Article 40).
+30a2be8ea40bbdb53ec9,eidas,art_5a,modified,data_protection,public_sector|all,low,draft,Typo fix: unlikeability -> unlinkability.
+e0b5e6eddf69b57590d1,eprivacy,art_6,modified,data_protection,telecom,low,draft,his/her consent -> his or her prior consent; borderline low/medium.
+0995856f885ebf2810f6,open_internet,art_5b,added,other,telecom,low,draft,Committee procedure.
+1071125b0f2f8e3c8d04,roaming,art_15,modified,transparency,telecom,low,draft,Adds 'in a timely manner' to consumption information.
+a46927f858fc6ce372f5,telecom_framework,art_15,modified,competition,telecom,low,draft,Procedural: BEREC opinion and advisory procedure for the markets recommendation.
+fe8bc33740bff01c6514,avmsd,art_23,modified,other,other,medium,draft,Advertising limit moves from 20% per clock hour to 20% per 6-18 and 18-24 windows.
+f08aa7e8acf0685961ba,eidas,art_19,removed,cybersecurity,other,high,draft,Security requirements for trust service providers removed (text-only reading).
+eccc5b729523b2a60d89,eprivacy,art_2,modified,scope_definitions|data_protection,telecom,medium,draft,Location data definition widened; 'call' definition removed.
+85acae4915a64f3157fd,open_internet,art_10,modified,other|competition,telecom,high,draft,Expiry of the intra-EU communications price cap moved from 2024 to 2032 (deadline affecting all providers).
+2fff2838c21059454e12,roaming,art_6f,added,competition|other,telecom,medium,draft,Transitional retail roaming surcharges until 14 June 2017.
+f90c50f1f4889482bcea,telecom_framework,annex_II,modified,competition,telecom,medium,draft,Joint dominance criteria rewritten.
+1fba5c351db08645d159,avmsd,art_11,modified,other|transparency,other,high,draft,Product placement goes from prohibited-with-derogations to allowed except in listed programmes.
+4cf9cf3bb27ff7cb46ed,eprivacy,art_14a,added,other,telecom,low,draft,Committee procedure.
+b90494b0f1bdf9fa0f9f,open_internet,art_5a,modified,other,telecom,low,draft,Visible difference is paragraph layout; the substantive edit is outside the excerpt I reviewed.
+66ee09696ebe31012c0e,roaming,art_17,modified,competition,telecom,low,draft,Dispute resolution wording on wholesale inputs.
+4e2ec5d43a2f251fed7c,telecom_framework,art_9a,added,other,telecom,medium,draft,Review of restrictions on existing spectrum rights.
+6b8c1829b5e0da0afd5e,avmsd,art_9,modified,other|transparency,other,medium,draft,Ad ban extended to e-cigarettes and refill containers.
+0ac593e037241721b047,eprivacy,art_13,modified,data_protection,all,medium,draft,Unsolicited communications rules extended to communication systems and to users.
+20674c0bae53825bfc62,open_internet,art_2,modified,scope_definitions,telecom,low,draft,Adds a definition of number-independent interpersonal communications service.
+c9383de9fa199ffeb137,roaming,art_14,modified,transparency,telecom,low,draft,Euro-tariff references removed from information duties.
+7b39d85e923574442008,telecom_framework,art_19,modified,competition|other,telecom,medium,draft,New Commission harmonisation powers with BEREC.
+9c5926793538b0850079,avmsd,art_4a,added,other,other,low,draft,Member States encourage co- and self-regulation; no direct obligation on providers.
+fb64e5e610654616cb70,eprivacy,art_4,modified,data_protection|cybersecurity,telecom,high,draft,Minimum security measures and personal data breach notification added.
+afd84b2b68667a63b88c,roaming,art_10,removed,competition|other,telecom,high,draft,Euro-SMS tariff and price caps removed.
+a78c81842f60bfe1d193,telecom_framework,art_2,modified,scope_definitions,telecom,medium,draft,Network definition now includes non-active network elements.
+2c88281c420a86daf635,avmsd,art_30b,removed,other,public_sector,low,draft,ERGA provision removed (institutional).
+55dcba94486e2fa1304d,eprivacy,art_15,modified,data_protection|transparency,telecom,medium,draft,Internal procedures for authority access requests.
+e46aecad0e4d7e594721,roaming,art_2,modified,scope_definitions,telecom,low,draft,Definitions updated for roam-like-at-home.
+2066b26ce47d8f909148,telecom_framework,art_27,removed,other,telecom,low,draft,Spent transitional measures removed.
+35b9ab7256adabb90100,avmsd,art_12,removed,other,other,high,draft,Protection of minors in on-demand services removed from this article (text-only reading).
+ebce524e8835363d300a,eprivacy,art_5,modified,data_protection,all|online_platforms,high,draft,Cookies: from right to refuse to prior consent.
+d1057d20f0ace3ea4590,roaming,art_19,modified,other,telecom,low,draft,Commission reporting schedule.
+26f8d7dec01386638463,telecom_framework,art_14,modified,competition,telecom,medium,draft,SMP leverage: designation on a second market and remedies there.
+9481375cd085aa886755,avmsd,art_1,modified,scope_definitions|platform_liability,online_platforms|other,medium,draft,Definitions incl. video-sharing platforms. Labeler had already seen the LLM output for this change (contamination).
+a479b27a98a9fb8c2b8d,eprivacy,art_15a,added,enforcement_penalties,telecom,high,draft,New penalties provision.

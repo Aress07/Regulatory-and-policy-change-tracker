@@ -10,7 +10,7 @@ import re
 from collections import Counter
 from dataclasses import dataclass
 from datetime import date
-from typing import Literal
+from typing import Any, Literal
 
 import duckdb
 import numpy as np
@@ -84,6 +84,17 @@ class SearchIndex:
         self.rows = rows
         self.embeddings = embeddings
         self.bm25 = BM25([tokenize(str(r[7])) for r in rows])
+
+    @classmethod
+    def from_chunks(
+        cls, chunks: list[tuple[Any, Any]], embeddings: NDArray[np.float32]
+    ) -> "SearchIndex":
+        """Build from `collect_chunks` output (for experiments that must not touch the DB)."""
+        rows: list[tuple[object, ...]] = [
+            (c.chunk_id, c.section_id, m[0], m[2], m[3], m[4], c.breadcrumb, c.text)
+            for c, m in chunks
+        ]
+        return cls(rows, embeddings)
 
     @classmethod
     def load(cls, con: duckdb.DuckDBPyConnection, include_history: bool = False) -> "SearchIndex":

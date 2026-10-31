@@ -134,3 +134,9 @@ def test_duplicate_keys_are_an_error() -> None:
     </body></html>"""
     with pytest.raises(ParseError, match="duplicate"):
         parse_document(raw)
+
+
+def test_headings_have_no_amendment_markers() -> None:
+    doc = parse_document(load("eprivacy_2009-12-19.xhtml"))
+    assert by_key(doc.sections)["art_4"].heading == "Security of processing"
+    assert not any(s.heading and re.search(r"[▼►◄]", s.heading) for s in doc.sections)
