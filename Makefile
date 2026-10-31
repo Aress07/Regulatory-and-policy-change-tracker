@@ -1,4 +1,4 @@
-.PHONY: setup lint format typecheck test check init ingest parse diff enrich index dbt dbt-fixture app api
+.PHONY: setup lint format typecheck test check init ingest parse diff enrich index dbt dbt-fixture app api pipeline snapshot dagster eval demo
 
 setup:
 	uv sync --all-extras || (python -m venv .venv && . .venv/bin/activate && pip install -e ".[dev,llm,ml,app,pipeline]")
@@ -33,6 +33,23 @@ dbt:
 dbt-fixture:
 	regtracker fixture-db --out data/fixture.duckdb
 	WAREHOUSE_PATH=data/fixture.duckdb dbt build --project-dir dbt --profiles-dir dbt
+
+# Full local pipeline (enrichment uses the LLM budget; reruns are cached)
+pipeline: ingest parse diff enrich index dbt
+
+snapshot:
+	regtracker snapshot
+
+dagster:
+	dagster dev -f orchestration/definitions.py
+
+eval:
+	python eval/run_eval.py --suite all --out eval/reports/
+
+# Dashboard on a warehouse built from fixtures: no network, no API key needed
+demo:
+	regtracker fixture-db --out data/fixture.duckdb
+	WAREHOUSE_PATH=data/fixture.duckdb streamlit run dashboard/app.py
 
 app:
 	streamlit run dashboard/app.py

@@ -1,0 +1,57 @@
+name: Weekly ingest
+# Incremental, deterministic part of the pipeline on free runners. LLM enrichment and
+# embeddings run locally (see README); their results travel inside the snapshot.
+on:
+  schedule:
+    - cron: "0 6 * * 1"   # Mondays 06:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: weekly-ingest
+  cancel-in-progress: false
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      HF_DATASET_REPO: ${{ vars.HF_DATASET_REPO }}
+      HF_TOKEN: ${{ secrets.HF_TOKEN }}
+      USER_AGENT: ${{ vars.USER_AGENT }}
+      WAREHOUSE_PATH: data/warehouse.duckdb
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install
+        run: pip install -e . "dbt-duckdb>=1.8" "huggingface_hub>=0.23"
+      - name: Fetch the previous snapshot (keeps enrichments and run history)
+        run: |
+          python - <<'PY'
+          import os, shutil
+          from pathlib import Path
+          from huggingface_hub import hf_hub_download
+          from huggingface_hub.utils import EntryNotFoundError, RepositoryNotFoundError
+          try:
+              path = hf_hub_download(os.environ["HF_DATASET_REPO"], "warehouse.duckdb",
+                                     repo_type="dataset", token=os.environ.get("HF_TOKEN"))
+              Path("data").mkdir(exist_ok=True)
+              shutil.copyfile(path, "data/warehouse.duckdb")
+              print("Restored previous snapshot")
+          except (EntryNotFoundError, RepositoryNotFoundError):
+              print("No previous snapshot; starting fresh")
+          PY
+      - name: Ingest, parse, diff
+        run: |
+          regtracker ingest --all
+          regtracker parse
+          regtracker diff
+      - name: dbt build
+        run: dbt build --project-dir dbt --profiles-dir dbt
+      - name: Export and upload snapshot
+        run: regtracker snapshot --upload --site-url "${{ github.server_url }}/${{ github.repository }}"

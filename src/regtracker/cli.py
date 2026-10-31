@@ -18,6 +18,7 @@ from regtracker.parse.stage import parse_pending
 from regtracker.rag.answer import load_rag_config
 
 DEFAULT_FIXTURE_DB = Path("data/fixture.duckdb")
+DEFAULT_SNAPSHOT_DIR = Path("data/snapshot")
 
 app = typer.Typer(help="EU Regulation Change Tracker", no_args_is_help=True)
 console = Console()
@@ -115,6 +116,28 @@ def diff(
             summary = ", ".join(f"{n} {t}" for t, n in counts) or "no changes"
             console.print(f"{r.from_version} -> {r.to_version}: {summary} ({r.new} new)")
     console.print(f"[green]{sum(r.new for r in reports)} new changes[/green]")
+
+
+@app.command()
+def snapshot(
+    out: Annotated[Path, typer.Option(help="Output folder")] = DEFAULT_SNAPSHOT_DIR,
+    site_url: str = typer.Option("https://github.com/", help="Link used in the RSS feed"),
+    upload: bool = typer.Option(False, help="Upload to HF_DATASET_REPO using HF_TOKEN"),
+) -> None:
+    """Export warehouse + RSS feed for the dashboard; optionally upload to Hugging Face."""
+    import os
+
+    from regtracker.app.publish import export_snapshot, upload_snapshot
+
+    settings = get_settings()
+    files = export_snapshot(settings.warehouse_path, out, site_url)
+    for f in files:
+        console.print(f"wrote {f} ({f.stat().st_size // 1024} KB)")
+    if upload:
+        repo, token = os.environ.get("HF_DATASET_REPO"), os.environ.get("HF_TOKEN")
+        if not repo or not token:
+            raise typer.BadParameter("set HF_DATASET_REPO and HF_TOKEN to upload")
+        console.print(f"[green]Uploaded:[/green] {upload_snapshot(out, repo, token)}")
 
 
 @app.command("fixture-db", hidden=True)
