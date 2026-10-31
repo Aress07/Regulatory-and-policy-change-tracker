@@ -1,9 +1,13 @@
-"""Read-only HTTP API over the warehouse: changes, freshness, and cited Q&A.
+"""HTTP API over the warehouse, plus the built React frontend (one deployable container).
 
-Run: uvicorn regtracker.api.main:app --reload
-No business logic lives here; it calls into regtracker.* modules.
+Run (development):  uvicorn regtracker.api.main:app --reload   and   npm run dev   in frontend/
+Run (production):   build frontend/ first; FRONTEND_DIST points at its dist/ folder.
+
+All endpoints are read-only and live under /api. No business logic here: queries come from
+regtracker.app.queries and answers from regtracker.rag.
 """
 
+import os
 import time
 from collections import defaultdict, deque
 from collections.abc import Callable, Iterator
@@ -12,48 +16,143 @@ from pathlib import Path
 from typing import Annotated, Any
 
 import duckdb
-from fastapi import Depends, FastAPI, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
+from regtracker.app import queries
+from regtracker.app.snapshot import resolve_warehouse
 from regtracker.common.config import get_settings
 from regtracker.rag.answer import Answerer, load_rag_config
 
 DISCLAIMER = "Not legal advice. AI-generated text can be wrong; check the official source."
+TOPICS = [
+    "data_protection", "ai_governance", "cybersecurity", "platform_liability", "competition",
+    "data_sharing", "transparency", "enforcement_penalties", "scope_definitions", "other",
+]  # fmt: skip
+SECTORS = [
+    "all", "healthcare", "finance", "public_sector", "online_platforms", "manufacturing",
+    "telecom", "education", "other",
+]  # fmt: skip
+
+
+# --- response models ----------------------------------------------------------------------------
 
 
 class Change(BaseModel):
     change_id: str
     doc_id: str
+    instrument: str
     section_key: str
     old_section_key: str | None
     section_type: str | None
+    heading: str | None
     change_type: str
     from_version: str
     to_version: str
+    from_date: date
     to_date: date
     is_synthetic: bool
     source_url: str
     summary: str | None = Field(None, description="AI-generated")
-    topics: list[str] | None = None
-    sectors: list[str] | None = None
-    impact: str | None = None
-    impact_rationale: str | None = None
+    topics: list[str] | None = Field(None, description="AI-generated")
+    sectors: list[str] | None = Field(None, description="AI-generated")
+    impact: str | None = Field(None, description="AI-generated")
+    impact_rationale: str | None = Field(None, description="AI-generated")
     enrichment_model: str | None = None
     prompt_version: str | None = None
+    enriched_at: datetime | None = None
+    is_enriched: bool
+    enrichment_failed: bool
+    similarity: float | None
 
 
 class ChangeDetail(Change):
     old_text: str | None
     new_text: str | None
-    similarity: float | None
-    diff_html: str | None
+    diff_html: str | None = Field(
+        None, description="Word-level diff; all source text is HTML-escaped, only <del>/<ins> tags"
+    )
+
+
+class Document(BaseModel):
+    doc_id: str
+    instrument: str
+    title: str | None
+    celex_base: str
+    doc_type: str | None
+    versions: int
+    latest_version: date | None
+    repealed: bool
+    changes: int
+    source_url: str
 
 
 class Freshness(BaseModel):
     last_successful_ingest: datetime | None
     days_since_ingest: int | None
     failures_last_7_days: int
+
+
+class InstrumentTypeCount(BaseModel):
+    instrument: str
+    change_type: str
+    changes: int
+
+
+class Overview(BaseModel):
+    instruments: int
+    versions_parsed: int
+    changes: int
+    high_impact: int
+    enriched: int
+    latest_change_date: date | None
+    changes_by_instrument_and_type: list[InstrumentTypeCount]
+    freshness: Freshness
+
+
+class TopicCount(BaseModel):
+    instrument: str
+    year: int
+    topic: str
+    changes: int
+
+
+class Run(BaseModel):
+    stage: str
+    subject: str | None
+    status: str | None
+    started_at: datetime | None
+    finished_at: datetime | None
+    seconds: float | None
+    rows_in: int | None
+    rows_out: int | None
+    error: str | None
+    run_id: str
+
+
+class LlmUsage(BaseModel):
+    model: str
+    prompt_version: str
+    succeeded: int
+    failed: int
+    tokens_in: int | None
+    tokens_out: int | None
+    tokens_per_change: float | None
+    shadow_cost_usd: float | None
+    shadow_cost_per_1000_changes: float | None
+    median_latency_ms: float | None
+
+
+class Meta(BaseModel):
+    topics: list[str]
+    sectors: list[str]
+    impacts: list[str]
+    change_types: list[str]
+    disclaimer: str
+    ask_enabled: bool
 
 
 class AskRequest(BaseModel):
@@ -86,6 +185,9 @@ class AskResponse(BaseModel):
     disclaimer: str = DISCLAIMER
 
 
+# --- rate limiting ------------------------------------------------------------------------------
+
+
 class RateLimiter:
     """Sliding-window limit per client key (in memory; fine for a single-process demo)."""
 
@@ -105,122 +207,134 @@ class RateLimiter:
         return True
 
 
-_CHANGE_COLUMNS = (
-    "change_id, doc_id, section_key, old_section_key, section_type, change_type, from_version, "
-    "to_version, to_date, is_synthetic, source_url, summary, topics, sectors, impact, "
-    "impact_rationale, enrichment_model, prompt_version"
-)
-_CHANGES_SQL = """
-    WITH latest AS (
-      SELECT * FROM enrichments WHERE status = 'success'
-      QUALIFY row_number() OVER (PARTITION BY change_id ORDER BY created_at DESC) = 1
-    )
-    SELECT c.change_id, c.doc_id, c.section_key, c.old_section_key, c.section_type,
-           c.change_type, c.from_version, c.to_version, tv.version_date AS to_date,
-           coalesce(c.is_synthetic, false) AS is_synthetic,
-           'https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:' || tv.celex AS source_url,
-           e.summary, e.topics, e.sectors, e.impact, e.impact_rationale,
-           e.model AS enrichment_model, e.prompt_version,
-           c.old_text, c.new_text, c.similarity, c.diff_html
-    FROM changes c
-    JOIN document_versions tv ON tv.version_id = c.to_version
-    LEFT JOIN latest e USING (change_id)
-"""
+# --- app factory --------------------------------------------------------------------------------
 
 
 def create_app(
     warehouse_path: Path | None = None,
     answerer_factory: Callable[[duckdb.DuckDBPyConnection], Answerer] | None = None,
     ask_limit: RateLimiter | None = None,
+    daily_ask_limit: RateLimiter | None = None,
     cors_origins: list[str] | None = None,
+    frontend_dist: Path | None = None,
 ) -> FastAPI:
-    db_path = warehouse_path or get_settings().warehouse_path
     limiter = ask_limit or RateLimiter(max_calls=10, window_s=60)
+    # Protects a shared free-tier key: questions per day across all users get LLM answers;
+    # beyond that, /ask returns retrieved passages only.
+    daily = daily_ask_limit or RateLimiter(max_calls=200, window_s=24 * 3600)
     state: dict[str, Any] = {}
 
-    app = FastAPI(
-        title="EU Regulation Change Tracker API",
-        description=f"Read-only access to detected changes and cited Q&A. {DISCLAIMER}",
-        version="0.1.0",
-    )
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=cors_origins or ["http://localhost:8501"],  # Streamlit dev server
-        allow_methods=["GET", "POST"],
-        allow_headers=["Content-Type"],
-    )
+    def db_path() -> str:
+        if "db_path" not in state:
+            settings = get_settings()
+            path = warehouse_path or resolve_warehouse(
+                Path(settings.warehouse_path),
+                os.environ.get("HF_DATASET_REPO"),
+                os.environ.get("HF_TOKEN"),
+            )
+            state["db_path"] = str(path)
+        return str(state["db_path"])
 
     def db() -> Iterator[duckdb.DuckDBPyConnection]:
-        con = duckdb.connect(str(db_path), read_only=True)
+        con = duckdb.connect(db_path(), read_only=True)
         try:
             yield con
         finally:
             con.close()
 
     Db = Annotated[duckdb.DuckDBPyConnection, Depends(db)]
+    api = APIRouter(prefix="/api")
 
-    def rows_to_changes(
-        con: duckdb.DuckDBPyConnection, sql: str, params: list[Any]
-    ) -> list[dict[str, Any]]:
-        cur = con.execute(sql, params)
-        names = [d[0] for d in cur.description]
-        return [dict(zip(names, r, strict=True)) for r in cur.fetchall()]
-
-    @app.get("/health")
+    @api.get("/health")
     def health(con: Db) -> dict[str, Any]:
         row = con.execute("SELECT count(*) FROM changes").fetchone()
         return {"status": "ok", "changes": row[0] if row else 0}
 
-    @app.get("/changes", response_model=list[Change])
-    def list_changes(
-        con: Db,
-        doc_id: str | None = None,
-        impact: str | None = Query(None, pattern="^(low|medium|high)$"),
-        since: date | None = None,
-        include_synthetic: bool = False,
-        limit: int = Query(100, ge=1, le=500),
-    ) -> list[dict[str, Any]]:
-        where: list[str] = ["1=1"]
-        params: list[object] = []
-        if doc_id:
-            where.append("c.doc_id = ?")
-            params.append(doc_id)
-        if impact:
-            where.append("e.impact = ?")
-            params.append(impact)
-        if since:
-            where.append("tv.version_date >= ?")
-            params.append(since)
-        if not include_synthetic:
-            where.append("NOT coalesce(c.is_synthetic, false)")
-        sql = (
-            f"SELECT {_CHANGE_COLUMNS} FROM ({_CHANGES_SQL} WHERE {' AND '.join(where)}) "
-            f"ORDER BY to_date DESC, doc_id, section_key LIMIT {int(limit)}"
-        )
-        return rows_to_changes(con, sql, params)
-
-    @app.get("/changes/{change_id}", response_model=ChangeDetail)
-    def get_change(con: Db, change_id: str) -> dict[str, Any]:
-        rows = rows_to_changes(con, f"{_CHANGES_SQL} WHERE c.change_id = ?", [change_id])
-        if not rows:
-            raise HTTPException(404, "change not found")
-        return rows[0]
-
-    @app.get("/freshness", response_model=Freshness)
-    def freshness(con: Db) -> dict[str, Any]:
-        last, failures = con.execute(
-            "SELECT max(finished_at) FILTER (WHERE stage LIKE 'ingest:%' AND status = 'success'), "
-            "count(*) FILTER (WHERE status = 'failed' AND finished_at > now() - INTERVAL 7 DAY) "
-            "FROM pipeline_runs"
-        ).fetchone() or (None, 0)
-        days = (datetime.now() - last).days if last else None
+    @api.get("/meta", response_model=Meta)
+    def meta() -> dict[str, Any]:
         return {
-            "last_successful_ingest": last,
-            "days_since_ingest": days,
-            "failures_last_7_days": failures,
+            "topics": TOPICS,
+            "sectors": SECTORS,
+            "impacts": ["high", "medium", "low", "unrated"],
+            "change_types": ["added", "removed", "modified", "renumbered"],
+            "disclaimer": DISCLAIMER,
+            "ask_enabled": bool(get_settings().llm_api_key) or answerer_factory is not None,
         }
 
-    @app.post("/ask", response_model=AskResponse)
+    def _freshness(con: duckdb.DuckDBPyConnection) -> dict[str, Any]:
+        fresh = queries.freshness(con)
+        last = fresh["last_successful_ingest"]
+        fresh["days_since_ingest"] = (datetime.now() - last).days if last else None
+        return fresh
+
+    @api.get("/freshness", response_model=Freshness)
+    def freshness(con: Db) -> dict[str, Any]:
+        return _freshness(con)
+
+    @api.get("/overview", response_model=Overview)
+    def overview(con: Db) -> dict[str, Any]:
+        return {**queries.overview(con), "freshness": _freshness(con)}
+
+    @api.get("/documents", response_model=list[Document])
+    def documents(con: Db) -> list[dict[str, Any]]:
+        return queries.documents(con)
+
+    @api.get("/changes", response_model=list[Change])
+    def list_changes(
+        con: Db,
+        doc_id: Annotated[list[str] | None, Query()] = None,
+        topic: Annotated[list[str] | None, Query()] = None,
+        sector: Annotated[list[str] | None, Query()] = None,
+        impact: Annotated[list[str] | None, Query()] = None,
+        change_type: Annotated[list[str] | None, Query()] = None,
+        date_from: date | None = None,
+        date_to: date | None = None,
+        include_synthetic: bool = False,
+        limit: int = Query(500, ge=1, le=1000),
+        offset: int = Query(0, ge=0),
+    ) -> list[dict[str, Any]]:
+        allowed_impacts = {"low", "medium", "high", "unrated"}
+        if impact and not set(impact) <= allowed_impacts:
+            raise HTTPException(422, f"impact must be one of {sorted(allowed_impacts)}")
+        filters = queries.ChangeFilters(
+            doc_ids=tuple(doc_id or ()),
+            topics=tuple(topic or ()),
+            sectors=tuple(sector or ()),
+            impacts=tuple(impact or ()),
+            change_types=tuple(change_type or ()),
+            date_from=date_from,
+            date_to=date_to,
+            include_synthetic=include_synthetic,
+            limit=limit,
+            offset=offset,
+        )
+        return queries.changes(con, filters)
+
+    @api.get("/changes/{change_id}", response_model=ChangeDetail)
+    def get_change(con: Db, change_id: str) -> dict[str, Any]:
+        detail = queries.change_detail(con, change_id)
+        if detail is None:
+            raise HTTPException(404, "change not found")
+        return detail
+
+    @api.get("/trends", response_model=list[TopicCount])
+    def trends(con: Db) -> list[dict[str, Any]]:
+        return queries.topic_counts(con)
+
+    @api.get("/runs", response_model=list[Run])
+    def runs(
+        con: Db,
+        stage: str | None = None,
+        only_failed: bool = False,
+        limit: int = Query(500, ge=1, le=2000),
+    ) -> list[dict[str, Any]]:
+        return queries.pipeline_runs(con, stage, only_failed, limit)
+
+    @api.get("/llm-usage", response_model=list[LlmUsage])
+    def llm_usage(con: Db) -> list[dict[str, Any]]:
+        return queries.llm_usage(con)
+
+    @api.post("/ask", response_model=AskResponse)
     def ask(body: AskRequest, request: Request, con: Db) -> dict[str, Any]:
         client = request.client.host if request.client else "unknown"
         if not limiter.allow(client):
@@ -228,9 +342,17 @@ def create_app(
         if "answerer" not in state:
             state["answerer"] = (answerer_factory or _default_answerer)(con)
         answerer: Answerer = state["answerer"]
+        if not daily.allow("global"):
+            answerer = Answerer(
+                answerer.index, answerer.embedder, None, answerer.model, answerer.urls,
+                answerer.config,
+            )  # fmt: skip
         from regtracker.index.search import Filters
 
         result = answerer.ask(body.question, Filters(doc_ids=(body.doc_id,) if body.doc_id else ()))
+        note = result.note
+        if answerer.llm is None and result.status == "retrieval_only":
+            note = "Daily question limit reached; showing the most relevant passages."
         return {
             "status": result.status,
             "answer": result.answer,
@@ -241,15 +363,53 @@ def create_app(
                  "score": h.score, "cosine": h.cosine}
                 for h in result.retrieved
             ],
-            "note": result.note,
+            "note": note,
         }  # fmt: skip
 
+    app = FastAPI(
+        title="EU Regulation Change Tracker API",
+        description=f"Read-only access to detected changes and cited Q&A. {DISCLAIMER}",
+        version="0.2.0",
+        docs_url="/api/docs",
+        openapi_url="/api/openapi.json",
+    )
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=cors_origins or ["http://localhost:5173"],  # Vite dev server
+        allow_methods=["GET", "POST"],
+        allow_headers=["Content-Type"],
+    )
+    app.include_router(api)
+    _mount_frontend(app, frontend_dist or _default_dist())
     return app
 
 
+def _default_dist() -> Path:
+    return Path(os.environ.get("FRONTEND_DIST", "frontend/dist"))
+
+
+def _mount_frontend(app: FastAPI, dist: Path) -> None:
+    """Serve the built single-page app; unknown non-API paths return index.html."""
+    index = dist / "index.html"
+    if not index.exists():
+        return
+    if (dist / "assets").is_dir():
+        app.mount("/assets", StaticFiles(directory=dist / "assets"), name="assets")
+
+    @app.get("/{path:path}", include_in_schema=False)
+    def spa(path: str) -> FileResponse:
+        if path.startswith("api/"):
+            raise HTTPException(404, "not found")
+        candidate = (dist / path).resolve()
+        if path and candidate.is_file() and dist.resolve() in candidate.parents:
+            return FileResponse(candidate)
+        return FileResponse(index)
+
+
 def _default_answerer(con: duckdb.DuckDBPyConnection) -> Answerer:
-    """Real embedder and LLM. The LLM gets its own writable connection for call logging only if
-    the warehouse is writable; the API itself never writes."""
+    """Real embedder and LLM. LLM calls are logged to an in-memory table: the API never writes
+    to the warehouse."""
+    from regtracker.common.db import init_schema
     from regtracker.enrich.llm_client import OpenAICompatibleLLM, load_llm_config
     from regtracker.index.embed import E5Embedder
     from regtracker.index.search import SearchIndex
@@ -257,9 +417,7 @@ def _default_answerer(con: duckdb.DuckDBPyConnection) -> Answerer:
 
     settings = get_settings()
     llm_config = load_llm_config(settings)
-    llm_con = duckdb.connect(":memory:")  # budget/call log kept in memory for the API process
-    from regtracker.common.db import init_schema
-
+    llm_con = duckdb.connect(":memory:")
     init_schema(llm_con)
     llm = OpenAICompatibleLLM(settings, llm_config, llm_con) if settings.llm_api_key else None
     return Answerer(
