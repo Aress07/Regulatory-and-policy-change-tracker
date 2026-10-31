@@ -403,7 +403,9 @@ def _mount_frontend(app: FastAPI, dist: Path) -> None:
         candidate = (dist / path).resolve()
         if path and candidate.is_file() and dist.resolve() in candidate.parents:
             return FileResponse(candidate)
-        return FileResponse(index)
+        # index.html names the hashed asset files of the current build; a cached copy would
+        # point at assets a redeploy has removed, so browsers must revalidate it.
+        return FileResponse(index, headers={"Cache-Control": "no-cache"})
 
 
 def _default_answerer(con: duckdb.DuckDBPyConnection) -> Answerer:

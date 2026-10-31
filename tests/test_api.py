@@ -151,6 +151,9 @@ def test_serves_frontend_with_spa_fallback(warehouse: Path, tmp_path: Path) -> N
 
     assert client.get("/").text == "<html>app</html>"
     assert client.get("/changes/abc").text == "<html>app</html>"  # client-side route
+    # A stale index.html would reference asset files that a redeploy removed.
+    assert client.get("/").headers["cache-control"] == "no-cache"
+    assert client.get("/changes/abc").headers["cache-control"] == "no-cache"
     assert client.get("/assets/app.js").text == "console.log(1)"
     assert client.get("/favicon.svg").text == "<svg/>"
     assert client.get("/api/unknown").status_code == 404  # API 404s are not swallowed
