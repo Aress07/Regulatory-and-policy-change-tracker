@@ -1,4 +1,4 @@
-.PHONY: setup lint format typecheck test check init ingest parse diff enrich index dbt dbt-fixture app api pipeline snapshot dagster eval demo
+.PHONY: setup lint format typecheck test check init ingest parse diff enrich index dbt dbt-fixture app api frontend frontend-dev pipeline snapshot dagster eval demo docker
 
 setup:
 	uv sync --all-extras || (python -m venv .venv && . .venv/bin/activate && pip install -e ".[dev,llm,ml,app,pipeline]")
@@ -46,13 +46,23 @@ dagster:
 eval:
 	python eval/run_eval.py --suite all --out eval/reports/
 
-# Dashboard on a warehouse built from fixtures: no network, no API key needed
-demo:
-	regtracker fixture-db --out data/fixture.duckdb
-	WAREHOUSE_PATH=data/fixture.duckdb streamlit run dashboard/app.py
+# Frontend: build once, then the API serves it at http://localhost:8000
+frontend:
+	cd frontend && npm ci && npm run build
 
-app:
-	streamlit run dashboard/app.py
+# Development: API with reload on :8000, Vite dev server (proxying /api) on :5173
+frontend-dev:
+	cd frontend && npm run dev
+
+# Whole app on a warehouse built from fixtures: no network, no API key needed
+demo: frontend
+	regtracker fixture-db --out data/fixture.duckdb
+	WAREHOUSE_PATH=data/fixture.duckdb uvicorn regtracker.api.main:app --port 8000
+
+app: frontend api
+
+docker:
+	docker build -t regtracker .
 
 api:
-	uvicorn regtracker.api.main:app --reload
+	uvicorn regtracker.api.main:app --reload --port 8000

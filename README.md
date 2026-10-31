@@ -8,7 +8,7 @@ article. Built entirely on free infrastructure.
 > **Not legal advice.** Summaries, tags and answers are AI-generated and can be wrong. Always check
 > the official text on EUR-Lex.
 
-<!-- Screenshot / GIF of the dashboard goes here (docs/img/dashboard.png). -->
+<!-- Screenshot / GIF of the web app goes here (docs/img/app.png). -->
 
 ## Architecture
 
@@ -21,7 +21,7 @@ flowchart LR
     C --> F[Index<br/>BM25 + E5 vectors]
     D --> G[dbt models + tests]
     E --> G
-    G --> H[Streamlit dashboard]
+    G --> H[FastAPI + React app]
     F --> I[Cited Q&A<br/>refusal gate]
     I --> H
 ```
@@ -42,7 +42,8 @@ Details: [docs/architecture.md](docs/architecture.md) · decisions: [docs/decisi
 - **Cited Q&A**: hybrid BM25 + E5 retrieval fused with RRF, every sentence cites a passage, a
   citation validator rejects anything outside the retrieved set, and a refusal gate answers "not
   enough evidence" instead of guessing.
-- **Dashboard**: overview, change timeline with filters, side-by-side diff with AI summary,
+- **Web app** (React + TypeScript, served by FastAPI): overview, change timeline with filters
+  that live in the URL, side-by-side diff with AI summary,
   topic trends, "since I last looked", Ask, pipeline health. AI output is always badged.
 - **Operations**: dbt models with tests and source freshness, Dagster assets with asset checks,
   weekly GitHub Actions run publishing a snapshot to Hugging Face, RSS feed of notable changes.
@@ -52,7 +53,7 @@ Details: [docs/architecture.md](docs/architecture.md) · decisions: [docs/decisi
 ```bash
 uv sync --all-extras            # or: python -m venv .venv && pip install -e ".[dev,llm,ml,app,pipeline]"
 cp .env.example .env            # put your Groq key in LLM_API_KEY and a contact email in USER_AGENT
-make demo                       # dashboard on a fixture warehouse: no network, no key needed
+make demo                       # app on a fixture warehouse at http://localhost:8000 (needs Node 20+)
 ```
 
 Full pipeline on real data:
@@ -65,7 +66,7 @@ regtracker enrich               # LLM explanations (resumable; stops at the dail
 regtracker index                # chunks + embeddings for Q&A
 dbt build --project-dir dbt --profiles-dir dbt
 regtracker ask "Within how many hours must a personal data breach be notified?"
-streamlit run dashboard/app.py
+make app                        # builds frontend/, serves app + API on :8000 (/api/docs)
 ```
 
 Quality gates: `make check` (ruff, mypy, pytest) and `make dbt-fixture`.
@@ -112,7 +113,7 @@ these numbers are provisional.**
 - Gold labels for evaluation were drafted by an LLM and still need human verification; metrics on
   them are provisional (labeled as such).
 - Enrichment and embeddings run locally; the weekly cloud run updates ingestion, diffs and dbt.
-- The pipeline's daily token budget and the dashboard's question caps are tracked separately;
+- The pipeline's daily token budget and the web app's question caps are tracked separately;
   if both use the same API key, their combined use can exceed either limit.
 
 ## Data sources and reuse
@@ -135,9 +136,14 @@ EUR-Lex), fetched via content negotiation on `publications.europa.eu/resource/ce
 2. In GitHub: repository variable `HF_DATASET_REPO`, variable `USER_AGENT`, secret `HF_TOKEN`.
    The weekly workflow (`.github/workflows/ingest.yml`) then publishes the snapshot.
 3. After local enrichment and indexing: `HF_DATASET_REPO=... HF_TOKEN=... regtracker snapshot --upload`.
-4. Streamlit Community Cloud: entry point `dashboard/app.py`; app secrets `HF_DATASET_REPO`
-   (and `HF_TOKEN` if the dataset is private) and optionally `LLM_API_KEY` for the Ask page.
-   Without a key, Ask shows retrieved passages only.
+4. Hugging Face Spaces (Docker SDK, free): create a Space, push this repository to it (the
+   `Dockerfile` builds the React app and the API into one image on port 7860), and set Space
+   secrets `HF_DATASET_REPO` (plus `HF_TOKEN` if the dataset is private) and optionally
+   `LLM_API_KEY` for the Ask page. Without a key, Ask shows retrieved passages only.
+   Locally: `docker build -t regtracker . && docker run -p 7860:7860 -e HF_DATASET_REPO=... regtracker`.
+
+Development: `make api` (FastAPI with reload on :8000) and `make frontend-dev` (Vite on :5173,
+proxying `/api`). See [ADR-004](docs/decisions/004-fastapi-react-instead-of-streamlit.md).
 
 ## License
 

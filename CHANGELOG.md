@@ -2,7 +2,7 @@
 
 ## Unreleased (candidate for v1.0.0)
 
-Release blockers: public deployment (Streamlit Cloud + Hugging Face snapshot), demo video,
+Release blockers: public deployment (Hugging Face Space + dataset snapshot), demo video,
 human verification of the draft evaluation labels.
 
 ### Added
@@ -16,8 +16,9 @@ human verification of the draft evaluation labels.
   token throttle, daily budget, shadow cost.
 - Hybrid retrieval (BM25 + E5, RRF), cited answers with citation validator and refusal gate,
   FastAPI service with rate-limited `/ask`.
-- Streamlit dashboard (7 pages), RSS feed, snapshot export/upload, Dagster assets and checks,
-  weekly GitHub Actions ingest.
+- Web app: React + TypeScript frontend (7 pages) served by FastAPI from one Docker image
+  (replaced the first Streamlit dashboard, ADR-004).
+- RSS feed, snapshot export/upload, Dagster assets and checks, weekly GitHub Actions ingest.
 - Evaluation harness, draft gold datasets, evaluation report.
 
 ### Corpus

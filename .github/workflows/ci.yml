@@ -40,3 +40,41 @@ jobs:
         env:
           WAREHOUSE_PATH: data/fixture.duckdb
         run: dbt build --project-dir dbt --profiles-dir dbt
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Tests
+        run: npm test
+      - name: Build
+        run: npm run build
+
+  docker:
+    runs-on: ubuntu-latest
+    needs: [check, frontend]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build image (not pushed)
+        run: docker build -t regtracker:ci .
+      - name: Smoke test (serves the API and the React app on a fixture warehouse)
+        run: |
+          docker run -d --name app -p 7860:7860 -v "$PWD/tests:/app/tests:ro"             -e WAREHOUSE_PATH=/tmp/fixture.duckdb regtracker:ci             sh -c "regtracker fixture-db --out /tmp/fixture.duckdb && uvicorn regtracker.api.main:app --host 0.0.0.0 --port 7860"
+          for i in $(seq 1 60); do curl -fs localhost:7860/api/health && break; sleep 2; done
+          curl -fs localhost:7860/api/health | grep -q '"changes":10'
+          curl -fs localhost:7860/ | grep -q 'id="root"'
+          curl -fs localhost:7860/changes/anything | grep -q 'id="root"'
+      - name: Container logs on failure
+        if: failure()
+        run: docker logs app || true

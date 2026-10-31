@@ -26,7 +26,7 @@ dependencies = [
 [project.optional-dependencies]
 llm = ["openai>=1.30"]
 ml = ["sentence-transformers>=3.0", "numpy>=1.26"]
-app = ["streamlit>=1.35", "plotly>=5.20", "fastapi>=0.111", "uvicorn>=0.30", "huggingface_hub>=0.23"]
+app = ["fastapi>=0.111", "uvicorn>=0.30", "huggingface_hub>=0.23"]
 pipeline = ["dbt-duckdb>=1.8", "dagster>=1.7", "dagster-webserver>=1.7", "dagster-dbt>=0.23"]
 dev = ["pytest>=8.0", "ruff>=0.5", "mypy>=1.10", "pre-commit>=3.7", "types-PyYAML"]
 

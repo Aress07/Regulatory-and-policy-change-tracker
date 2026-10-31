@@ -16,7 +16,7 @@ flowchart TD
     end
     changes --> dbt["6 dbt models + tests"]
     enrichments --> dbt
-    dbt --> app["Streamlit dashboard"]
+    dbt --> app["React web app<br/>(served by FastAPI)"]
     chunks --> rag["RAG API (FastAPI)<br/>cited answers, refusal gate"]
     rag --> app
 ```

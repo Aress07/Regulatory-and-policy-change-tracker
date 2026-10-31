@@ -1,0 +1,14 @@
+.git
+.venv
+.env
+.env.*
+data
+**/__pycache__
+**/node_modules
+frontend/dist
+dbt/target
+dbt/logs
+eval/reports
+.mypy_cache
+.ruff_cache
+.pytest_cache
