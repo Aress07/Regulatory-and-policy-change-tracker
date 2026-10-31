@@ -1,5 +1,8 @@
 """Index stage: chunk sections of each document's latest parsed version and embed them.
 
+Repealed instruments are not "latest": by default they are left out of Q&A so answers never
+come from law that is no longer in force.
+
 Rebuilds the `chunks` table each run (cheap: unchanged text hits the embedding cache).
 `include_history=True` also indexes older versions, flagged `is_latest = false`.
 """
@@ -29,9 +32,13 @@ def build_index(
     started = utcnow()
     rows = con.execute(
         """
-        WITH versions AS (
+        WITH repealed AS (
+          SELECT DISTINCT doc_id FROM document_versions WHERE parse_status = 'repealed'
+        ),
+        versions AS (
           SELECT v.version_id, v.doc_id, v.version_date,
-                 v.version_date = max(v.version_date) OVER (PARTITION BY v.doc_id) AS is_latest
+                 v.version_date = max(v.version_date) OVER (PARTITION BY v.doc_id)
+                   AND v.doc_id NOT IN (SELECT doc_id FROM repealed) AS is_latest
           FROM document_versions v WHERE v.parse_status = 'parsed'
         )
         SELECT s.section_id, s.version_id, v.doc_id, v.version_date, v.is_latest, s.section_key,
@@ -57,16 +64,17 @@ def build_index(
     con.execute("BEGIN TRANSACTION")
     try:
         con.execute("DELETE FROM chunks")
-        con.executemany(
-            "INSERT INTO chunks (chunk_id, section_id, text, embedding, doc_id, version_id, "
-            "version_date, section_key, section_type, breadcrumb, is_latest, text_hash) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            [
-                [c.chunk_id, c.section_id, c.text, v.tolist(), *meta[:5], c.breadcrumb, meta[5],
-                 c.text_hash]
-                for (c, meta), v in zip(chunks, vectors, strict=True)
-            ],
-        )  # fmt: skip
+        if chunks:
+            con.executemany(
+                "INSERT INTO chunks (chunk_id, section_id, text, embedding, doc_id, version_id, "
+                "version_date, section_key, section_type, breadcrumb, is_latest, text_hash) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                [
+                    [c.chunk_id, c.section_id, c.text, v.tolist(), *meta[:5], c.breadcrumb, meta[5],
+                     c.text_hash]
+                    for (c, meta), v in zip(chunks, vectors, strict=True)
+                ],
+            )  # fmt: skip
         con.execute("COMMIT")
     except Exception:
         con.execute("ROLLBACK")

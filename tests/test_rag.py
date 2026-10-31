@@ -125,7 +125,7 @@ def test_index_builds_from_latest_version_and_uses_cache(
     assert first.chunks > 0 and first.embedded == first.chunks
 
     versions = {r[0] for r in indexed.execute("SELECT DISTINCT version_id FROM chunks").fetchall()}
-    assert versions == {"eprivacy@2009-12-19"}  # latest parsed version only; repealed has none
+    assert versions == {"eprivacy@2009-12-19"}  # latest parsed version only
 
     texts_before = embedder.texts
     second = build_index(indexed, embedder, max_tokens=300)
@@ -246,3 +246,16 @@ def test_question_length_is_limited(answerer_parts: Any) -> None:
         make(answerer_parts, FakeLLM()).ask("x" * 501)
     with pytest.raises(ValueError):
         make(answerer_parts, FakeLLM()).ask("   ")
+
+
+def test_repealed_instruments_are_not_indexed_by_default(
+    indexed: duckdb.DuckDBPyConnection,
+) -> None:
+    # Pretend ePrivacy was repealed after its 2009 version.
+    indexed.execute(
+        "INSERT INTO document_versions (version_id, doc_id, celex, version_date, source_url, "
+        "fetched_at, content_hash, raw_path, parse_status) VALUES ('eprivacy@2030-01-01', "
+        "'eprivacy', 'x', '2030-01-01', 'u', now(), 'h', 'r', 'repealed')"
+    )
+    assert build_index(indexed, FakeEmbedder()).chunks == 0
+    assert build_index(indexed, FakeEmbedder(), include_history=True).chunks > 0
