@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { api, useApi } from "../api";
-import { Card, ErrorMessage, FreshnessBanner, Loading } from "../components/ui";
+import { Card, ErrorMessage, FreshnessBanner, Icon, Loading, PageHeader } from "../components/ui";
 
 export default function HealthPage() {
   const [onlyFailed, setOnlyFailed] = useState(false);
@@ -10,19 +10,42 @@ export default function HealthPage() {
 
   return (
     <>
-      <h1>Pipeline health</h1>
+      <PageHeader
+        eyebrow="System"
+        title="Pipeline health"
+        lede="Every stage logs one run per document or version. LLM usage is tracked with tokens, latency and shadow cost."
+      />
       {overview.data && <FreshnessBanner freshness={overview.data.freshness} />}
       {overview.data && (
         <div className="kpis">
-          <div className="card kpi" style={{ marginBottom: 0 }}>
-            <div className="label">Failures (last 7 days)</div>
+          <div className="card kpi">
+            <div className="label">
+              <Icon name="alert" size={15} />
+              Failures (last 7 days)
+            </div>
             <div className="value">{overview.data.freshness.failures_last_7_days}</div>
+          </div>
+          <div className="card kpi">
+            <div className="label">
+              <Icon name="layers" size={15} />
+              Versions parsed
+            </div>
+            <div className="value">{overview.data.versions_parsed}</div>
+          </div>
+          <div className="card kpi">
+            <div className="label">
+              <Icon name="sparkle" size={15} />
+              Changes enriched
+            </div>
+            <div className="value">
+              {overview.data.enriched} of {overview.data.changes}
+            </div>
           </div>
         </div>
       )}
 
-      <Card title="LLM usage and shadow cost">
-        <p className="muted small">
+      <Card title="LLM usage and shadow cost" icon="sparkle">
+        <p className="muted small" style={{ marginTop: 0 }}>
           Shadow cost = tokens priced at public list prices (configs/llm.yml). The free tier
           actually costs $0.
         </p>
@@ -67,15 +90,20 @@ export default function HealthPage() {
         )}
       </Card>
 
-      <Card title="Recent stage runs">
-        <label className="small">
-          <input
-            type="checkbox"
-            checked={onlyFailed}
-            onChange={(e) => setOnlyFailed(e.target.checked)}
-          />{" "}
-          Failures only
-        </label>
+      <Card
+        title="Recent stage runs"
+        icon="health"
+        aside={
+          <label className="checkbox">
+            <input
+              type="checkbox"
+              checked={onlyFailed}
+              onChange={(e) => setOnlyFailed(e.target.checked)}
+            />
+            Failures only
+          </label>
+        }
+      >
         {runs.error && <ErrorMessage error={runs.error} />}
         {runs.loading && <Loading />}
         {runs.data && (
@@ -100,7 +128,7 @@ export default function HealthPage() {
                     <td>{r.stage}</td>
                     <td>{r.subject}</td>
                     <td>
-                      <span className={`badge ${r.status === "failed" ? "high" : ""}`}>
+                      <span className={`badge ${r.status === "failed" ? "high" : r.status === "success" ? "ok" : ""}`}>
                         {r.status}
                       </span>
                     </td>

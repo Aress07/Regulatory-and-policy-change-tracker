@@ -3,12 +3,18 @@ import { ApiError, api, useApi } from "../api";
 import {
   AiBadge,
   Card,
+  ChangeTypeBadge,
   ErrorMessage,
+  Icon,
   ImpactBadge,
   Loading,
   SyntheticBadge,
   formatDate,
+  sectionLabel,
 } from "../components/ui";
+
+const label = (values: string[] | null) =>
+  values && values.length ? values.map((v) => v.replace(/_/g, " ")) : [];
 
 export default function ChangeDetailPage() {
   const { changeId = "" } = useParams();
@@ -18,7 +24,10 @@ export default function ChangeDetailPage() {
     if (change.error instanceof ApiError && change.error.status === 404) {
       return (
         <div className="banner warn">
-          This change no longer exists. <Link to="/changes">Back to the timeline</Link>
+          <Icon name="warning" />
+          <span>
+            This change no longer exists. <Link to="/changes">Back to the timeline</Link>
+          </span>
         </div>
       );
     }
@@ -29,46 +38,73 @@ export default function ChangeDetailPage() {
 
   return (
     <>
-      <p className="small">
-        <Link to="/changes">← Change timeline</Link>
-      </p>
-      <h1>
-        {c.instrument} · {c.section_key}
-        {c.heading && <span className="muted"> · {c.heading}</span>}
-      </h1>
-      <p>
-        <span className="badge">{c.change_type}</span>
-        <ImpactBadge impact={c.impact} />
-        {c.is_synthetic && <SyntheticBadge />}
-      </p>
-      <p className="muted small">
-        From {c.from_version} ({formatDate(c.from_date)}) to {c.to_version} (
-        {formatDate(c.to_date)})
-        {c.similarity !== null && ` · word similarity ${c.similarity.toFixed(2)}`}
-      </p>
-      <p>
-        <a className="button" href={c.source_url} target="_blank" rel="noreferrer">
-          Official consolidated text on EUR-Lex ↗
-        </a>
-      </p>
+      <Link to="/changes" className="back-link">
+        <Icon name="back" size={15} /> Change timeline
+      </Link>
 
-      <Card>
-        <h2>
-          What changed <AiBadge />
-        </h2>
+      <header className="detail-head">
+        <p className="eyebrow">{c.instrument}</p>
+        <h1>
+          {sectionLabel(c.section_key)}
+          {c.heading && <span className="heading"> · {c.heading}</span>}
+        </h1>
+        <div className="badges">
+          <ChangeTypeBadge type={c.change_type} />
+          <ImpactBadge impact={c.impact} />
+          {c.is_synthetic && <SyntheticBadge />}
+          {c.similarity !== null && <span className="badge">word similarity {c.similarity.toFixed(2)}</span>}
+        </div>
+        <div className="version-path">
+          <span className="version-chip">
+            <small>From</small>
+            <b>{formatDate(c.from_date)}</b>
+          </span>
+          <Icon name="arrow" size={16} />
+          <span className="version-chip">
+            <small>To</small>
+            <b>{formatDate(c.to_date)}</b>
+          </span>
+          <a className="button" href={c.source_url} target="_blank" rel="noreferrer" style={{ marginLeft: "auto" }}>
+            Official text on EUR-Lex <Icon name="external" size={15} />
+          </a>
+        </div>
+      </header>
+
+      <Card title="What changed" icon="sparkle" aside={<AiBadge />} className="ai">
         {c.summary ? (
           <>
-            <p>{c.summary}</p>
-            <p>
-              <strong>Impact:</strong> <ImpactBadge impact={c.impact} />
-              <br />
-              {c.impact_rationale}
-            </p>
-            <p className="small">
-              <strong>Topics:</strong> {(c.topics ?? []).join(", ").replace(/_/g, " ")}
-              <br />
-              <strong>Sectors:</strong> {(c.sectors ?? []).join(", ").replace(/_/g, " ")}
-            </p>
+            <p className="summary-text">{c.summary}</p>
+            <dl className="facts">
+              <div className="fact">
+                <dt>Impact</dt>
+                <dd>
+                  <ImpactBadge impact={c.impact} />
+                  <p className="small" style={{ margin: "0.35rem 0 0", color: "var(--text-2)" }}>
+                    {c.impact_rationale}
+                  </p>
+                </dd>
+              </div>
+              <div className="fact">
+                <dt>Topics</dt>
+                <dd>
+                  {label(c.topics).map((t) => (
+                    <span key={t} className="badge">
+                      {t}
+                    </span>
+                  ))}
+                </dd>
+              </div>
+              <div className="fact">
+                <dt>Sectors</dt>
+                <dd>
+                  {label(c.sectors).map((s) => (
+                    <span key={s} className="badge">
+                      {s}
+                    </span>
+                  ))}
+                </dd>
+              </div>
+            </dl>
             <details>
               <summary>How was this generated?</summary>
               <ul className="small">
@@ -83,17 +119,29 @@ export default function ChangeDetailPage() {
             </details>
           </>
         ) : c.enrichment_failed ? (
-          <div className="banner warn">
+          <div className="banner warn" style={{ marginBottom: 0 }}>
+            <Icon name="warning" />
             The AI explanation failed validation for this change; see the diff below.
           </div>
         ) : (
-          <p className="muted">No AI explanation yet. The diff below is complete.</p>
+          <p className="muted" style={{ margin: 0 }}>
+            No AI explanation yet. The diff below is complete.
+          </p>
         )}
       </Card>
 
-      <Card title="Text comparison">
-        <p className="muted small">
-          Deterministic word-level diff: removed words struck through, added words highlighted.
+      <Card
+        title="Text comparison"
+        icon="diff"
+        aside={
+          <span className="legend">
+            <del>removed</del>
+            <ins>added</ins>
+          </span>
+        }
+      >
+        <p className="muted small" style={{ marginTop: 0 }}>
+          Deterministic word-level diff of the normalised text.
         </p>
         {c.diff_html ? (
           // diff_html is generated server-side by regtracker.diff: all source text is
@@ -107,10 +155,10 @@ export default function ChangeDetailPage() {
       </Card>
 
       <div className="side-by-side">
-        <Card title="Before">
+        <Card title="Before" aside={<span className="muted small">{formatDate(c.from_date)}</span>}>
           <pre className="text">{c.old_text ?? "(not present in the earlier version)"}</pre>
         </Card>
-        <Card title="After">
+        <Card title="After" aside={<span className="muted small">{formatDate(c.to_date)}</span>}>
           <pre className="text">{c.new_text ?? "(removed in the later version)"}</pre>
         </Card>
       </div>

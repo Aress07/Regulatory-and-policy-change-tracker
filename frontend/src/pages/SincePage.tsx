@@ -1,7 +1,6 @@
-import { Link } from "react-router-dom";
 import { useState } from "react";
 import { api, useApi } from "../api";
-import { AiBadge, Card, ErrorMessage, ImpactBadge, Loading } from "../components/ui";
+import { AiBadge, Card, ChangeListItem, ErrorMessage, Icon, Loading, PageHeader } from "../components/ui";
 import type { Change } from "../types";
 
 const STORAGE_KEY = "regtracker.lastLooked";
@@ -38,7 +37,11 @@ export default function SincePage() {
 
   return (
     <>
-      <h1>Since I last looked</h1>
+      <PageHeader
+        eyebrow="Monitor"
+        title="Since I last looked"
+        lede="Pick the date you last checked; changes in later versions are grouped by instrument."
+      />
       <Card>
         <label className="field" htmlFor="since">
           Show changes in versions dated on or after
@@ -51,12 +54,17 @@ export default function SincePage() {
           onChange={(e) => e.target.value && update(e.target.value)}
           style={{ maxWidth: 220 }}
         />
-        <p className="muted small">Your date is remembered in this browser.</p>
+        <p className="muted small" style={{ marginBottom: 0 }}>
+          Your date is remembered in this browser.
+        </p>
       </Card>
       {changes.error && <ErrorMessage error={changes.error} />}
       {changes.loading && <Loading />}
       {changes.data && changes.data.length === 0 && (
-        <div className="banner">No changes since {since}.</div>
+        <div className="banner">
+          <Icon name="check" />
+          No changes since {since}.
+        </div>
       )}
       {changes.data && changes.data.length > 0 && (
         <p className="muted small">
@@ -69,19 +77,12 @@ export default function SincePage() {
           <Card key={instrument}>
             <details open={(changes.data?.length ?? 0) <= 20}>
               <summary>
-                <strong>{instrument}</strong> ({items.length} changes)
+                <strong style={{ color: "var(--text)", fontSize: "0.95rem" }}>{instrument}</strong>{" "}
+                <span className="badge">{items.length} changes</span>
               </summary>
-              <ul style={{ paddingLeft: "1.1rem" }}>
+              <ul className="change-list">
                 {items.map((c) => (
-                  <li key={c.change_id} style={{ margin: "0.6rem 0" }}>
-                    <Link to={`/changes/${c.change_id}`}>
-                      {c.section_key}
-                      {c.heading ? ` ${c.heading}` : ""}
-                    </Link>{" "}
-                    <span className="badge">{c.change_type}</span>
-                    <ImpactBadge impact={c.impact} />
-                    <div className="muted small">{c.summary ?? "No AI summary yet."}</div>
-                  </li>
+                  <ChangeListItem key={c.change_id} change={c} showInstrument={false} />
                 ))}
               </ul>
             </details>

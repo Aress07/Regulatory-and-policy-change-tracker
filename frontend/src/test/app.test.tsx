@@ -4,6 +4,7 @@ import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import App from "../App";
 import { toSearchParams } from "../api";
+import { sectionLabel } from "../components/ui";
 import type { AskResponse, Change, ChangeDetail } from "../types";
 
 const change: Change = {
@@ -115,7 +116,10 @@ describe("every page", () => {
     async (path) => {
       renderAt(path);
       expect(screen.getByRole("note")).toHaveTextContent("Not legal advice");
-      await waitFor(() => expect(screen.queryByRole("status")).not.toBeInTheDocument());
+      // Generous timeout: the first test also pays for lazily loading the chart library.
+      await waitFor(() => expect(screen.queryByRole("status")).not.toBeInTheDocument(), {
+        timeout: 5000,
+      });
       expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     },
   );
@@ -202,5 +206,26 @@ describe("toSearchParams", () => {
       "?impact=high&impact=low",
     );
     expect(toSearchParams({})).toBe("");
+  });
+});
+
+describe("sectionLabel", () => {
+  it("turns section keys into readable labels", () => {
+    expect(sectionLabel("art_30b")).toBe("Article 30b");
+    expect(sectionLabel("annex_XIV")).toBe("Annex XIV");
+    expect(sectionLabel("rct_5")).toBe("Recital 5");
+    expect(sectionLabel("something_else")).toBe("something_else");
+  });
+});
+
+describe("theme toggle", () => {
+  it("switches theme and remembers it", async () => {
+    const user = userEvent.setup();
+    renderAt("/health");
+    const before = document.documentElement.dataset.theme;
+    const next = before === "dark" ? "light" : "dark";
+    await user.click(screen.getByRole("button", { name: `Switch to ${next} theme` }));
+    expect(document.documentElement.dataset.theme).toBe(next);
+    expect(localStorage.getItem("regtracker.theme")).toBe(next);
   });
 });

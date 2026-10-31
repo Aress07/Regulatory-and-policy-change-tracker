@@ -1,10 +1,10 @@
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { api, useApi } from "../api";
-import { AiBadge, Card, ErrorMessage, Loading } from "../components/ui";
+import { AiBadge, Card, ErrorMessage, Loading, PageHeader } from "../components/ui";
 
 const PALETTE = [
-  "#2563eb", "#16a34a", "#dc2626", "#9333ea", "#ea580c",
-  "#0891b2", "#ca8a04", "#db2777", "#4b5563", "#65a30d",
+  "#2e90fa", "#12b76a", "#f04438", "#9e77ed", "#f79009",
+  "#06aed4", "#eaaa08", "#ee46bc", "#667085", "#66c61c",
 ];
 
 export default function TrendsPage() {
@@ -16,7 +16,7 @@ export default function TrendsPage() {
   if (rows.length === 0) {
     return (
       <>
-        <h1>Topic trends</h1>
+        <PageHeader eyebrow="Analyse" title="Topic trends" />
         <div className="banner">No enriched changes yet. Run `regtracker enrich`.</div>
       </>
     );
@@ -43,27 +43,40 @@ export default function TrendsPage() {
 
   return (
     <>
-      <h1>Topic trends</h1>
-      <p className="muted">
-        Topics are assigned by the LLM <AiBadge /> Synthetic test changes are excluded.
-      </p>
-      <Card title="Changes per topic over time">
+      <PageHeader
+        eyebrow="Analyse"
+        title="Topic trends"
+        lede={
+          <>
+            Which areas of digital law are moving. Topics are assigned by the LLM <AiBadge />{" "}
+            Synthetic test changes are excluded.
+          </>
+        }
+      />
+      <Card title="Changes per topic over time" icon="trends">
         <div style={{ width: "100%", height: 320 }}>
           <ResponsiveContainer>
             <BarChart data={yearData}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} />
-              <XAxis dataKey="year" />
-              <YAxis allowDecimals={false} />
-              <Tooltip />
-              <Legend />
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
+              <XAxis dataKey="year" tick={{ fill: "var(--muted)", fontSize: 12 }} />
+              <YAxis allowDecimals={false} tick={{ fill: "var(--muted)", fontSize: 12 }} />
+              <Tooltip
+                cursor={{ fill: "var(--surface-2)" }}
+                contentStyle={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 8 }}
+              />
+              <Legend
+                iconType="circle"
+                wrapperStyle={{ fontSize: 12 }}
+                formatter={(v: string) => v.replace(/_/g, " ")}
+              />
               {topics.map((t, i) => (
-                <Bar key={t} dataKey={t} stackId="a" fill={PALETTE[i % PALETTE.length]} />
+                <Bar key={t} dataKey={t} stackId="a" fill={PALETTE[i % PALETTE.length]} maxBarSize={48} />
               ))}
             </BarChart>
           </ResponsiveContainer>
         </div>
       </Card>
-      <Card title="Instrument by topic">
+      <Card title="Instrument by topic" icon="layers">
         <div className="table-wrap">
           <div
             className="heatmap"
@@ -92,7 +105,7 @@ export default function TrendsPage() {
                       role="cell"
                       title={`${ins}, ${t}: ${n}`}
                       style={{
-                        background: n ? `rgb(37 99 235 / ${alpha})` : "var(--surface-2)",
+                        background: n ? `rgb(46 144 250 / ${alpha})` : "var(--surface-2)",
                         color: alpha > 0.55 ? "#fff" : "inherit",
                       }}
                     >
