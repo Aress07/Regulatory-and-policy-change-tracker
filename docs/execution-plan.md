@@ -47,7 +47,7 @@ never commit it.
    - Day C: `python eval/run_eval.py --suite answers` (end-to-end cited answers).
    - After each: refresh `docs/eval-report.md`, the README table and section 16.
 3. **User verifies draft labels** (`docs/labeling-guide.md`), then rerun `eval/run_eval.py --suite all`.
-4. **Ship:** 2-3 minute demo video (script in section 11.3), update `CHANGELOG.md`, tag `v1.0.0`.
+4. **Ship:** record the 2-3 minute demo video (`docs/demo-script.md`), update `CHANGELOG.md`, tag `v1.0.0`.
 
 **Run locally:** `make demo` (fixture warehouse) or `make app` / `make api` (real warehouse) on
 http://localhost:8000; `make frontend-dev` for Vite on :5173. Before saying a task is done: `make check`,
@@ -753,6 +753,13 @@ Write `docs/eval-report.md` with the tables, an honest "failure analysis" sectio
 - Designed LLM enrichment (plain-language summary, topic tags, impact rating) with schema-validated JSON, caching, token throttling and a daily budget: **0 of 82** outputs failed validation, at **1.8K tokens/change** and **$0.37 per 1,000 changes** (shadow cost).
 - Built cited Q&A over **1,475 chunks** with hybrid BM25 + vector retrieval (RRF): **MRR 0.975** vs 0.869 (BM25) and 0.927 (vector), **100% hit@3**; a tuned refusal gate scored **25/25** on the held-out set.
 - Shipped a React + FastAPI web app in one Docker image with rate-limited Q&A that degrades to retrieval-only, **215 automated tests** (152 Python, 17 frontend, 46 dbt), weekly GitHub Actions ingestion and 4 ADRs.
+
+**CV version (French, matches the CV's project format):**
+
+> **Veille réglementaire UE : suivi des lois numériques par IA** · Octobre 2026
+> - Concevoir un **pipeline de données** (Python, DuckDB, dbt) sur 14 textes UE : **107** changements détectés sans LLM.
+> - Construire un **RAG** hybride (BM25 + vecteurs) avec citations vérifiées : MRR de **0,975**, **25/25** refus corrects.
+> - Déployer une app **FastAPI** et **React** sous **Docker**, **215** tests : **0,37** dollar pour 1 000 changements analysés.
 
 Provisional until the draft labels and QA set are human-verified (see `docs/eval-report.md`); add the public URL once deployed.
 
