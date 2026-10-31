@@ -1,0 +1,21 @@
+# Starting corpus. VERIFY every CELEX against EUR-Lex before relying on it.
+language: EN
+instruments:
+  - doc_id: gdpr
+    celex_base: "32016R0679"
+    doc_type: regulation
+  - doc_id: ai_act
+    celex_base: "32024R1689"
+    doc_type: regulation
+  - doc_id: data_act
+    celex_base: "32023R2854"
+    doc_type: regulation
+  - doc_id: dsa
+    celex_base: "32022R2065"
+    doc_type: regulation
+  - doc_id: dma
+    celex_base: "32022R1925"
+    doc_type: regulation
+  - doc_id: nis2
+    celex_base: "32022L2555"
+    doc_type: directive

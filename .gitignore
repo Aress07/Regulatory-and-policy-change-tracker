@@ -218,3 +218,16 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# --- added from project scaffold ---
+.env.*
+!.env.example
+data/*
+!data/.gitkeep
+*.duckdb
+*.duckdb.wal
+.cache/
+dbt/target/
+dbt/logs/
+dbt/dbt_packages/
+.dagster/
