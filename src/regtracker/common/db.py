@@ -86,6 +86,16 @@ ALTER TABLE changes ADD COLUMN IF NOT EXISTS section_type VARCHAR;
 ALTER TABLE document_versions ADD COLUMN IF NOT EXISTS parse_status VARCHAR;
 ALTER TABLE document_versions ADD COLUMN IF NOT EXISTS repealed_by VARCHAR[];
 
+-- One row per real (non-cached) LLM request; the daily token budget is computed from it.
+CREATE TABLE IF NOT EXISTS llm_calls (
+  created_at TIMESTAMP NOT NULL,
+  model VARCHAR NOT NULL,
+  prompt_version VARCHAR NOT NULL,
+  tokens_in INTEGER,
+  tokens_out INTEGER,
+  latency_ms INTEGER
+);
+
 CREATE TABLE IF NOT EXISTS pipeline_runs (
   run_id VARCHAR NOT NULL,
   stage VARCHAR NOT NULL,
@@ -105,6 +115,7 @@ TABLES = [
     "changes",
     "enrichments",
     "chunks",
+    "llm_calls",
     "pipeline_runs",
 ]
 

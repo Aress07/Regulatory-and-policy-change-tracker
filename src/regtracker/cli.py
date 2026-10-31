@@ -11,6 +11,8 @@ from regtracker.common.db import TABLES, warehouse
 from regtracker.common.fixture_db import build_fixture_db
 from regtracker.common.http import PoliteClient
 from regtracker.diff.stage import diff_all
+from regtracker.enrich.enrich import DEFAULT_PROMPT_VERSION, enrich_pending
+from regtracker.enrich.llm_client import OpenAICompatibleLLM, load_llm_config
 from regtracker.ingest.fetch import ingest_all
 from regtracker.parse.stage import parse_pending
 
@@ -129,9 +131,29 @@ def fixture_db(
 
 
 @app.command()
-def enrich() -> None:
-    """LLM enrichment of changes (week 3)."""
-    _todo("enrich", 3)
+def enrich(
+    model: str | None = typer.Option(None, help="Model id (default: summary model in configs)"),
+    prompt_version: str = typer.Option(
+        DEFAULT_PROMPT_VERSION, help="Prompt file in enrich/prompts"
+    ),
+    limit: int | None = typer.Option(None, help="Enrich at most N changes this run"),
+    retry_failed: bool = typer.Option(False, help="Also retry changes whose last attempt failed"),
+) -> None:
+    """Explain detected changes with the LLM (resumable, cached, budget-aware)."""
+    settings = get_settings()
+    config = load_llm_config(settings)
+    chosen = model or config.summary_model
+    with warehouse(settings.warehouse_path) as con:
+        llm = OpenAICompatibleLLM(settings, config, con)
+        report = enrich_pending(
+            con, llm, config, chosen, prompt_version, limit=limit, retry_failed=retry_failed
+        )
+    console.print(
+        f"{chosen} {prompt_version}: {report.pending} pending, {report.succeeded} succeeded, "
+        f"{report.failed} failed, {report.llm_calls} LLM calls, {report.tokens} tokens"
+    )
+    if report.stopped_reason:
+        console.print(f"[yellow]Stopped early:[/yellow] {report.stopped_reason}")
 
 
 @app.command()

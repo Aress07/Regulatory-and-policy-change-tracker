@@ -1,0 +1,21 @@
+# LLM settings that are not secrets. The API key lives only in .env (LLM_API_KEY).
+# LLM_MODEL_CLASSIFY / LLM_MODEL_SUMMARY in .env override the models below.
+# Verified 2026-10-31 against https://console.groq.com/docs/models and /docs/structured-outputs.
+models:
+  classify: openai/gpt-oss-20b
+  summary: openai/gpt-oss-120b
+
+# Per-model request options. `strict_schema` = Groq Structured Outputs with strict: true
+# (constrained decoding); other models fall back to JSON object mode.
+model_options:
+  openai/gpt-oss-20b: {strict_schema: true, reasoning_effort: low}
+  openai/gpt-oss-120b: {strict_schema: true, reasoning_effort: low}
+
+max_output_tokens: 1200
+request_timeout_s: 60
+
+# Public list prices in USD per 1M tokens, used for shadow cost (what a run would cost on a
+# paid plan). Source: https://console.groq.com/docs/model/<model-id>, checked 2026-10-31.
+prices_per_million:
+  openai/gpt-oss-20b: {input: 0.075, output: 0.30}
+  openai/gpt-oss-120b: {input: 0.15, output: 0.60}
