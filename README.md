@@ -97,7 +97,7 @@ these numbers are provisional.**
 | Component | Result |
 |---|---|
 | Diff | 27/27 versions match independent article counts; 0 false positives in the manual audit after fixes |
-| Retrieval (hybrid, 40 questions) | hit@1 0.950, hit@5 1.000, MRR 0.975 (BM25 alone 0.850, vector alone 0.923) |
+| Retrieval (hybrid, 40 questions) | hit@1 0.950, hit@5 1.000, MRR 0.975 (BM25 alone 0.869, vector alone 0.927) |
 | Refusal gate (test split) | 20/20 in-scope answered, 5/5 out-of-scope refused |
 | Impact rating (37 changes) | accuracy 0.568, within one level 0.973 |
 | Topics (37 changes) | micro F1 0.624, macro F1 0.646 |
@@ -112,6 +112,8 @@ these numbers are provisional.**
 - Gold labels for evaluation were drafted by an LLM and still need human verification; metrics on
   them are provisional (labeled as such).
 - Enrichment and embeddings run locally; the weekly cloud run updates ingestion, diffs and dbt.
+- The pipeline's daily token budget and the dashboard's question caps are tracked separately;
+  if both use the same API key, their combined use can exceed either limit.
 
 ## Data sources and reuse
 Legal texts come from the Publications Office of the EU **Cellar** repository (the open store behind

@@ -72,15 +72,16 @@ retrieval modes and three chunk sizes (tokens). Full table in `eval/reports/summ
 
 | Setting | hit@1 (all) | hit@3 (all) | hit@5 (all) | MRR (dev) | MRR (test) | MRR (all) |
 |---|---|---|---|---|---|---|
-| BM25 @ 300 | 0.750 | 0.950 | 0.975 | 0.858 | 0.842 | 0.850 |
-| Vector (E5) @ 300 | 0.875 | 0.975 | 1.000 | 0.879 | 0.967 | 0.923 |
+| BM25 @ 300 | 0.775 | 0.975 | 0.975 | 0.896 | 0.842 | 0.869 |
+| Vector (E5) @ 300 | 0.875 | 0.975 | 1.000 | 0.904 | 0.950 | 0.927 |
 | **Hybrid (RRF) @ 300** (deployed) | 0.950 | 1.000 | 1.000 | 0.975 | 0.975 | 0.975 |
-| Hybrid @ 200 | 0.975 | 1.000 | 1.000 | 1.000 | 0.975 | 0.988 |
-| Hybrid @ 400 | 0.925 | 1.000 | 1.000 | 0.925 | 1.000 | 0.963 |
+| Hybrid @ 200 | 1.000 | 1.000 | 1.000 | 1.000 | 1.000 | 1.000 |
+| Hybrid @ 400 | 0.950 | 1.000 | 1.000 | 0.942 | 1.000 | 0.971 |
 
-Hybrid beats either ranking alone at every chunk size. Chunk size barely matters here: 200 vs 300
-differs by one question on dev, which is within noise for 20 questions, so the deployed setting
-stays at 300.
+Hybrid beats either ranking alone at every chunk size. Hybrid @ 200 is best on every number, but
+on dev it differs from 300 by a single question (one rank-2 hit), which is within noise for 20
+questions; 300 stays deployed. Re-chunking at 200 is a cheap follow-up once the QA set is
+verified and larger.
 
 ## 5. Refusal gate and answers
 
@@ -89,11 +90,14 @@ hybrid top 5 was tuned on dev only and applied unchanged to test.
 
 | Split | Threshold | Accuracy | In-scope answered | Out-of-scope refused |
 |---|---|---|---|---|
-| dev (20 + 5) | 0.845 | 1.000 | 1.000 | 1.000 |
-| test (20 + 5) | 0.845 | 1.000 | 1.000 | 1.000 |
+| dev (20 + 5) | 0.8313 | 1.000 | 1.000 | 1.000 |
+| test (20 + 5) | 0.8313 | 1.000 | 1.000 | 1.000 |
 
-This is perfect separation, but the out-of-scope questions are far from the corpus (bread,
-football, US visas). Near-miss questions (e.g. a GDPR-style question about a non-EU law) would be a
+The threshold is the midpoint of the dev gap between the highest out-of-scope score (0.8168) and
+the lowest in-scope score (0.8458). The tuner first picked the lowest in-scope score itself, which
+leaves zero margin; it now centres the threshold in the widest gap. On test the margin is thin:
+the highest out-of-scope question scores 0.8285, only 0.003 below the threshold. Separation is
+perfect here, but the out-of-scope questions are far from the corpus (bread, football, US visas). Near-miss questions (e.g. a GDPR-style question about a non-EU law) would be a
 harder test and are not in the set yet.
 
 **End-to-end answers with the LLM (citation validity, refusal accuracy with generation): not run

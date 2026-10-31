@@ -1,5 +1,6 @@
 """Evaluation metrics. Pure functions, unit-tested; the eval driver is eval/run_eval.py."""
 
+import itertools
 from collections import Counter
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -88,16 +89,26 @@ def best_threshold(
     in_scope_scores: list[float], out_scope_scores: list[float]
 ) -> tuple[float, float]:
     """Threshold maximizing accuracy of "answer if score >= t" (in-scope answered, out-of-scope
-    refused). Ties go to the highest threshold (refuse more). Returns (threshold, accuracy)."""
-    candidates = sorted(set(in_scope_scores) | set(out_scope_scores))
-    total = len(in_scope_scores) + len(out_scope_scores) or 1
-    best = (candidates[0] if candidates else 0.0, -1.0)
-    for t in candidates:
-        correct = sum(s >= t for s in in_scope_scores) + sum(s < t for s in out_scope_scores)
-        acc = correct / total
-        if acc > best[1] or (acc == best[1] and t > best[0]):
-            best = (t, acc)
-    return best
+    refused). Among equally accurate cut points, the widest gap wins and the threshold is placed
+    in its middle, so near-boundary questions are not decided by a hair. Returns (t, accuracy)."""
+    scores = sorted(set(in_scope_scores) | set(out_scope_scores))
+    if not scores:
+        return 0.0, 0.0
+    # Cut points: below everything, between each pair of neighbours, above everything.
+    cuts = (
+        [scores[0] - 1e-6]
+        + [(a + b) / 2 for a, b in itertools.pairwise(scores)]
+        + [scores[-1] + 1e-6]
+    )
+    gaps = [0.0] + [b - a for a, b in itertools.pairwise(scores)] + [0.0]
+    total = len(in_scope_scores) + len(out_scope_scores)
+
+    def accuracy(t: float) -> float:
+        right = sum(s >= t for s in in_scope_scores) + sum(s < t for s in out_scope_scores)
+        return right / total
+
+    best = max(range(len(cuts)), key=lambda i: (accuracy(cuts[i]), gaps[i]))
+    return cuts[best], accuracy(cuts[best])
 
 
 def gate_accuracy(

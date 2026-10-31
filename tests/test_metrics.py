@@ -44,6 +44,6 @@ def test_impact_metrics() -> None:
 
 def test_best_threshold_separates_scores() -> None:
     t, acc = best_threshold([0.9, 0.85, 0.8], [0.7, 0.75])
-    assert acc == 1.0 and 0.75 < t <= 0.8
+    assert acc == 1.0 and t == pytest.approx(0.775)  # middle of the gap 0.75 .. 0.8
     gate = gate_accuracy(t, [0.9, 0.85, 0.8], [0.7, 0.75])
     assert gate == {"accuracy": 1.0, "in_scope_answered": 1.0, "out_of_scope_refused": 1.0}
