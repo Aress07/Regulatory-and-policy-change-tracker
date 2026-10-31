@@ -1,0 +1,51 @@
+name: Deploy to Hugging Face Space
+
+# After CI passes on main, upload what the Docker image needs to the Space; the Space then
+# rebuilds itself. Inactive until the repository variable HF_SPACE_REPO (e.g. "user/eu-reg-tracker")
+# and the secret HF_TOKEN (write access) are set.
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-space
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    if: >-
+      vars.HF_SPACE_REPO != '' &&
+      (github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install the Hugging Face CLI
+        run: pip install "huggingface_hub>=0.34"
+      - name: Assemble the Space
+        run: |
+          mkdir space
+          cp -r Dockerfile .dockerignore pyproject.toml LICENSE src configs frontend space/
+          rm -rf space/frontend/node_modules space/frontend/dist
+          # Spaces read their configuration from YAML front matter in README.md.
+          {
+            printf '%s\n' '---' 'title: EU Regulation Change Tracker' 'emoji: 📜' \
+              'colorFrom: blue' 'colorTo: yellow' 'sdk: docker' 'app_port: 7860' \
+              'short_description: Changes in EU digital law, explained and cited' \
+              'pinned: false' '---' ''
+            cat README.md
+          } > space/README.md
+      - name: Upload
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          HF_SPACE_REPO: ${{ vars.HF_SPACE_REPO }}
+        run: |
+          hf upload "$HF_SPACE_REPO" space . --repo-type=space --delete="*" \
+            --commit-message="Deploy ${GITHUB_SHA::7} from GitHub"

@@ -29,7 +29,8 @@ RUN python -c "from sentence_transformers import SentenceTransformer; SentenceTr
 
 # The warehouse comes from the Hugging Face dataset snapshot (HF_DATASET_REPO) at startup,
 # or mount one at /app/data/warehouse.duckdb.
-RUN useradd --create-home app && chown -R app /app
+# Hugging Face Spaces run the container as user ID 1000.
+RUN useradd --create-home --uid 1000 app && chown -R app /app
 USER app
 EXPOSE 7860
 CMD ["uvicorn", "regtracker.api.main:app", "--host", "0.0.0.0", "--port", "7860"]

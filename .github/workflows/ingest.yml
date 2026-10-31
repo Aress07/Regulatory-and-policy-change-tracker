@@ -55,3 +55,9 @@ jobs:
         run: dbt build --project-dir dbt --profiles-dir dbt
       - name: Export and upload snapshot
         run: regtracker snapshot --upload --site-url "${{ github.server_url }}/${{ github.repository }}"
+      - name: Restart the Space so it loads the new snapshot
+        if: vars.HF_SPACE_REPO != ''
+        env:
+          HF_SPACE_REPO: ${{ vars.HF_SPACE_REPO }}
+        run: |
+          python -c "import os; from huggingface_hub import HfApi; HfApi(token=os.environ['HF_TOKEN']).restart_space(os.environ['HF_SPACE_REPO'])"
