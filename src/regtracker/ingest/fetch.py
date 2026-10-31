@@ -64,10 +64,10 @@ def write_raw_once(path: Path, content: bytes) -> None:
 
 def upsert_document(con: duckdb.DuckDBPyConnection, inst: Instrument) -> None:
     con.execute(
-        "INSERT INTO documents (doc_id, celex_base, doc_type) VALUES (?, ?, ?) "
+        "INSERT INTO documents (doc_id, celex_base, doc_type, short_name) VALUES (?, ?, ?, ?) "
         "ON CONFLICT (doc_id) DO UPDATE SET celex_base = excluded.celex_base, "
-        "doc_type = excluded.doc_type",
-        [inst.doc_id, inst.celex_base, inst.doc_type],
+        "doc_type = excluded.doc_type, short_name = excluded.short_name",
+        [inst.doc_id, inst.celex_base, inst.doc_type, inst.name],
     )
 
 

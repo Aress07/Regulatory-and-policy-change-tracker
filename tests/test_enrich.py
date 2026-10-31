@@ -308,3 +308,37 @@ def test_invalid_answers_are_not_cached(con: duckdb.DuckDBPyConnection, tmp_path
     assert analyze(llm, MODEL, "v1", MESSAGES).analysis is None
     assert analyze(llm, MODEL, "v1", MESSAGES).analysis is not None  # fresh call, now valid
     assert len(fake.calls) == 3
+
+
+def _bad_request(message: str) -> openai.BadRequestError:
+    request = httpx.Request("POST", "https://example.org")
+    return openai.BadRequestError(message, response=httpx.Response(400, request=request), body=None)
+
+
+def test_groq_json_validation_400_goes_through_retry_path(
+    con: duckdb.DuckDBPyConnection, tmp_path: Path
+) -> None:
+    fake = FakeOpenAI(error=_bad_request("Failed to validate JSON. Please adjust your prompt."))
+    outcome = analyze(make_llm(con, fake, tmp_path), MODEL, "v1", MESSAGES)
+    assert outcome.analysis is not None  # second call (valid) succeeded
+    assert len(fake.calls) == 2
+
+
+def test_unexpected_error_fails_one_change_not_the_run(
+    fixture_con: duckdb.DuckDBPyConnection, tmp_path: Path
+) -> None:
+    fake = FakeOpenAI(error=_bad_request("context length exceeded"))
+    report = enrich_pending(fixture_con, make_llm(fixture_con, fake, tmp_path), CONFIG, MODEL)
+    assert (report.failed, report.succeeded, report.stopped_reason) == (1, 9, None)
+
+
+def test_auth_error_stops_the_run(fixture_con: duckdb.DuckDBPyConnection, tmp_path: Path) -> None:
+    request = httpx.Request("POST", "https://example.org")
+    error = openai.AuthenticationError(
+        "bad key", response=httpx.Response(401, request=request), body=None
+    )
+    report = enrich_pending(
+        fixture_con, make_llm(fixture_con, FakeOpenAI(error=error), tmp_path), CONFIG, MODEL
+    )
+    assert report.stopped_reason is not None and report.succeeded == 0
+    assert fixture_con.execute("SELECT count(*) FROM enrichments").fetchone() == (0,)

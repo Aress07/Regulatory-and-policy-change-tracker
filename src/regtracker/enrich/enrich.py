@@ -198,6 +198,14 @@ def store_outcome(
     )
 
 
+def _is_fatal(exc: BaseException) -> bool:
+    import openai
+
+    return isinstance(
+        exc, openai.AuthenticationError | openai.PermissionDeniedError | openai.NotFoundError
+    )
+
+
 @dataclass
 class EnrichReport:
     pending: int = 0
@@ -228,6 +236,11 @@ def enrich_pending(
         except BudgetExceededError as exc:
             report.stopped_reason = str(exc)
             break
+        except Exception as exc:
+            if _is_fatal(exc):  # e.g. bad API key: every later call would fail the same way
+                report.stopped_reason = f"{type(exc).__name__}: {exc}"[:500]
+                break
+            outcome = Outcome(None, f"{type(exc).__name__}: {exc}"[:1000], 0, 0, 0, 0)
         store_outcome(con, config, change.change_id, model, prompt_version, outcome)
         report.succeeded += outcome.analysis is not None
         report.failed += outcome.analysis is None

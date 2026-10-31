@@ -15,16 +15,12 @@ from regtracker.enrich.enrich import DEFAULT_PROMPT_VERSION, enrich_pending
 from regtracker.enrich.llm_client import OpenAICompatibleLLM, load_llm_config
 from regtracker.ingest.fetch import ingest_all
 from regtracker.parse.stage import parse_pending
+from regtracker.rag.answer import load_rag_config
 
 DEFAULT_FIXTURE_DB = Path("data/fixture.duckdb")
 
 app = typer.Typer(help="EU Regulation Change Tracker", no_args_is_help=True)
 console = Console()
-
-
-def _todo(stage: str, week: int) -> None:
-    console.print(f"[yellow]{stage}[/yellow] is not implemented yet (planned for week {week}).")
-    raise typer.Exit(code=2)
 
 
 @app.command("init-db")
@@ -157,9 +153,55 @@ def enrich(
 
 
 @app.command()
-def index() -> None:
-    """Chunk and embed sections (week 4)."""
-    _todo("index", 4)
+def index(
+    history: bool = typer.Option(False, help="Also index older versions (flagged not latest)"),
+) -> None:
+    """Chunk the latest version of each document and embed the chunks (cached by text hash)."""
+    from regtracker.index.embed import E5Embedder
+    from regtracker.index.stage import build_index
+
+    settings = get_settings()
+    rag = load_rag_config()
+    with warehouse(settings.warehouse_path) as con:
+        report = build_index(con, E5Embedder(), rag.chunk_max_tokens, include_history=history)
+    console.print(
+        f"[green]{report.chunks} chunks[/green] from {report.sections} sections "
+        f"({report.embedded} newly embedded, the rest from cache)"
+    )
+
+
+@app.command()
+def ask(
+    question: str = typer.Argument(..., help="Question about the tracked legal texts"),
+    doc: str | None = typer.Option(None, help="Restrict to one doc_id"),
+    no_llm: bool = typer.Option(False, "--no-llm", help="Show retrieved passages only"),
+) -> None:
+    """Answer a question with citations (refuses when the evidence is weak)."""
+    from regtracker.index.embed import E5Embedder
+    from regtracker.index.search import Filters, SearchIndex
+    from regtracker.rag.answer import Answerer, source_urls
+
+    settings = get_settings()
+    rag = load_rag_config()
+    with warehouse(settings.warehouse_path) as con:
+        llm_config = load_llm_config(settings)
+        llm = None if no_llm else OpenAICompatibleLLM(settings, llm_config, con)
+        answerer = Answerer(
+            SearchIndex.load(con), E5Embedder(), llm, llm_config.summary_model,
+            source_urls(con), rag,
+        )  # fmt: skip
+        result = answerer.ask(question, Filters(doc_ids=(doc,) if doc else ()))
+
+    console.print(f"[bold]{result.status}[/bold] (confidence: {result.confidence})")
+    if result.answer:
+        console.print(result.answer)
+        for c in result.citations:
+            console.print(f"  [{c.n}] {c.breadcrumb}  {c.source_url}")
+    if result.note:
+        console.print(f"[yellow]{result.note}[/yellow]")
+    if not result.answer:
+        for n, h in enumerate(result.retrieved, start=1):
+            console.print(f"  [{n}] {h.breadcrumb} (cosine {h.cosine:.3f})")
 
 
 if __name__ == "__main__":

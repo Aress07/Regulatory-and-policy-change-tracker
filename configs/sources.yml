@@ -2,46 +2,60 @@
 language: EN
 instruments:
   - doc_id: gdpr
+    name: "GDPR"
     celex_base: "32016R0679"
     doc_type: regulation
   - doc_id: ai_act
+    name: "AI Act"
     celex_base: "32024R1689"
     doc_type: regulation
   - doc_id: data_act
+    name: "Data Act"
     celex_base: "32023R2854"
     doc_type: regulation
   - doc_id: dsa
+    name: "Digital Services Act"
     celex_base: "32022R2065"
     doc_type: regulation
   - doc_id: dma
+    name: "Digital Markets Act"
     celex_base: "32022R1925"
     doc_type: regulation
   - doc_id: nis2
+    name: "NIS2 Directive"
     celex_base: "32022L2555"
     doc_type: directive
   # Added 2026-10-31 (ADR-002): the six above have no pair of English consolidated versions.
   - doc_id: eidas
+    name: "eIDAS Regulation"
     celex_base: "32014R0910"
     doc_type: regulation
   - doc_id: eprivacy
+    name: "ePrivacy Directive"
     celex_base: "32002L0058"
     doc_type: directive
   - doc_id: eecc
+    name: "European Electronic Communications Code"
     celex_base: "32018L1972"
     doc_type: directive
   # Added 2026-10-31 (ADR-002, widening): the trio above yielded only 15 real changes.
   - doc_id: open_internet
+    name: "Open Internet Regulation"
     celex_base: "32015R2120"
     doc_type: regulation
   - doc_id: avmsd
+    name: "Audiovisual Media Services Directive"
     celex_base: "32010L0013"
     doc_type: directive
   - doc_id: roaming
+    name: "Roaming Regulation"
     celex_base: "32012R0531"
     doc_type: regulation
   - doc_id: telecom_framework
+    name: "Framework Directive (telecoms)"
     celex_base: "32002L0021"
     doc_type: directive
   - doc_id: universal_service
+    name: "Universal Service Directive"
     celex_base: "32002L0022"
     doc_type: directive

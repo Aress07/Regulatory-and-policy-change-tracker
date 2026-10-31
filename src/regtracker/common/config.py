@@ -12,6 +12,7 @@ class Instrument(BaseModel):
     doc_id: str
     celex_base: str
     doc_type: str
+    name: str | None = None  # short display name, e.g. "GDPR"
 
 
 class Settings(BaseSettings):

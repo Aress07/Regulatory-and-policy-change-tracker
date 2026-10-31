@@ -85,6 +85,24 @@ ALTER TABLE changes ADD COLUMN IF NOT EXISTS section_type VARCHAR;
 -- parse_status: parsed | repealed | failed
 ALTER TABLE document_versions ADD COLUMN IF NOT EXISTS parse_status VARCHAR;
 ALTER TABLE document_versions ADD COLUMN IF NOT EXISTS repealed_by VARCHAR[];
+ALTER TABLE documents ADD COLUMN IF NOT EXISTS short_name VARCHAR;
+-- Retrieval metadata on chunks (chunks are rebuilt by `regtracker index`).
+ALTER TABLE chunks ADD COLUMN IF NOT EXISTS doc_id VARCHAR;
+ALTER TABLE chunks ADD COLUMN IF NOT EXISTS version_id VARCHAR;
+ALTER TABLE chunks ADD COLUMN IF NOT EXISTS version_date DATE;
+ALTER TABLE chunks ADD COLUMN IF NOT EXISTS section_key VARCHAR;
+ALTER TABLE chunks ADD COLUMN IF NOT EXISTS section_type VARCHAR;
+ALTER TABLE chunks ADD COLUMN IF NOT EXISTS breadcrumb VARCHAR;
+ALTER TABLE chunks ADD COLUMN IF NOT EXISTS is_latest BOOLEAN;
+ALTER TABLE chunks ADD COLUMN IF NOT EXISTS text_hash VARCHAR;
+
+-- Embeddings keyed by (model, text hash) so re-indexing never recomputes unchanged text.
+CREATE TABLE IF NOT EXISTS embedding_cache (
+  model VARCHAR NOT NULL,
+  text_hash VARCHAR NOT NULL,
+  embedding FLOAT[384] NOT NULL,
+  PRIMARY KEY (model, text_hash)
+);
 
 -- One row per real (non-cached) LLM request; the daily token budget is computed from it.
 CREATE TABLE IF NOT EXISTS llm_calls (

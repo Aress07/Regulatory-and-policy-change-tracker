@@ -126,7 +126,11 @@ class LLMResult:
 
 class LLM(Protocol):
     def complete_json(
-        self, model: str, messages: list[dict[str, str]], prompt_version: str
+        self,
+        model: str,
+        messages: list[dict[str, str]],
+        prompt_version: str,
+        schema: dict[str, Any] | None = None,
     ) -> LLMResult: ...
 
     def forget(self, model: str, messages: list[dict[str, str]], prompt_version: str) -> None:
@@ -151,6 +155,12 @@ def _is_retryable(exc: BaseException) -> bool:
     if isinstance(exc, openai.RateLimitError | openai.APITimeoutError | openai.APIConnectionError):
         return True
     return isinstance(exc, openai.APIStatusError) and exc.status_code >= 500
+
+
+def _is_invalid_json_error(exc: BaseException) -> bool:
+    import openai
+
+    return isinstance(exc, openai.BadRequestError) and "json" in str(exc).lower()
 
 
 class _WaitRetryAfter(wait_base):
@@ -232,7 +242,9 @@ class OpenAICompatibleLLM:
 
     # --- call --------------------------------------------------------------------------------
 
-    def _request_kwargs(self, model: str, messages: list[dict[str, str]]) -> dict[str, Any]:
+    def _request_kwargs(
+        self, model: str, messages: list[dict[str, str]], schema: dict[str, Any] | None
+    ) -> dict[str, Any]:
         from regtracker.enrich.schemas import strict_json_schema
 
         options = self._config.options(model)
@@ -246,9 +258,9 @@ class OpenAICompatibleLLM:
             kwargs["response_format"] = {
                 "type": "json_schema",
                 "json_schema": {
-                    "name": "change_analysis",
+                    "name": "response",
                     "strict": True,
-                    "schema": strict_json_schema(),
+                    "schema": schema or strict_json_schema(),
                 },
             }
         else:
@@ -261,8 +273,13 @@ class OpenAICompatibleLLM:
         return kwargs
 
     def complete_json(
-        self, model: str, messages: list[dict[str, str]], prompt_version: str
+        self,
+        model: str,
+        messages: list[dict[str, str]],
+        prompt_version: str,
+        schema: dict[str, Any] | None = None,
     ) -> LLMResult:
+        """JSON completion. `schema` defaults to the change-analysis schema."""
         key = cache_key(model, prompt_version, messages)
         if (cached := self._read_cache(key)) is not None:
             return cached
@@ -273,7 +290,7 @@ class OpenAICompatibleLLM:
                 f"daily token budget {self._budget} would be exceeded; resume on the next run"
             )
 
-        kwargs = self._request_kwargs(model, messages)
+        kwargs = self._request_kwargs(model, messages, schema)
 
         timing = {"ms": 0}
 
@@ -290,7 +307,14 @@ class OpenAICompatibleLLM:
             wait=_WaitRetryAfter(self._wait),
             reraise=True,
         )
-        response = retrying(attempt)
+        try:
+            response = retrying(attempt)
+        except Exception as exc:
+            if _is_invalid_json_error(exc):
+                # Groq rejects generations that fail its own schema check (HTTP 400). Report it
+                # as an empty answer so the caller's validation-retry path handles it.
+                return LLMResult("", model, 0, 0, timing["ms"], cached=False)
+            raise
         latency_ms = timing["ms"]
 
         usage = response.usage
