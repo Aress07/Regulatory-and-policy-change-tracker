@@ -234,3 +234,6 @@ dbt/dbt_packages/
 
 # dbt anonymous usage id
 dbt/.user.yml
+
+# Personal files kept next to the project
+/CV_*.pdf
