@@ -5,10 +5,14 @@ stops cleanly when the daily token budget is reached. A response that fails vali
 once with the error message; a second failure is stored as an explicit `failed` row.
 """
 
+import csv
 import difflib
+import io
 import json
+from collections.abc import Sequence
 from dataclasses import dataclass
 from importlib import resources
+from pathlib import Path
 
 import duckdb
 from pydantic import ValidationError
@@ -25,6 +29,14 @@ def load_prompt(version: str) -> str:
     return (resources.files("regtracker.enrich") / "prompts" / f"{version}.md").read_text(
         encoding="utf-8"
     )
+
+
+def read_change_ids(path: Path) -> list[str]:
+    """Change ids from a CSV with a `change_id` column, or from a file with one id per line."""
+    text = path.read_text(encoding="utf-8")
+    if path.suffix.lower() == ".csv":
+        return [row["change_id"] for row in csv.DictReader(io.StringIO(text)) if row["change_id"]]
+    return [line.strip() for line in text.splitlines() if line.strip()]
 
 
 def changed_passages(old: str, new: str, context: int = 1) -> tuple[str, str]:
@@ -129,8 +141,11 @@ def pending_changes(
     prompt_version: str,
     retry_failed: bool = False,
     limit: int | None = None,
+    change_ids: Sequence[str] | None = None,
 ) -> list[ChangeInput]:
+    """Changes without an enrichment for (model, prompt_version), optionally only `change_ids`."""
     status_filter = "AND e.status = 'success'" if retry_failed else ""
+    id_filter = "AND c.change_id IN (SELECT unnest(?::VARCHAR[]))" if change_ids is not None else ""
     sql = f"""
         SELECT c.change_id,
                d.doc_id || coalesce(' - ' || d.title, '') AS instrument,
@@ -148,10 +163,13 @@ def pending_changes(
         WHERE NOT EXISTS (
           SELECT 1 FROM enrichments e
           WHERE e.change_id = c.change_id AND e.model = ? AND e.prompt_version = ? {status_filter}
-        )
+        ) {id_filter}
         ORDER BY c.doc_id, c.to_version, c.section_key
     """
-    rows = con.execute(sql + (f" LIMIT {int(limit)}" if limit else ""), [model, prompt_version])
+    params: list[object] = [model, prompt_version]
+    if change_ids is not None:
+        params.append(list(change_ids))
+    rows = con.execute(sql + (f" LIMIT {int(limit)}" if limit else ""), params)
     return [ChangeInput(*r) for r in rows.fetchall()]
 
 
@@ -225,9 +243,10 @@ def enrich_pending(
     *,
     limit: int | None = None,
     retry_failed: bool = False,
+    change_ids: Sequence[str] | None = None,
 ) -> EnrichReport:
     prompt = load_prompt(prompt_version)
-    todo = pending_changes(con, model, prompt_version, retry_failed, limit)
+    todo = pending_changes(con, model, prompt_version, retry_failed, limit, change_ids)
     report = EnrichReport(pending=len(todo))
     started = utcnow()
     for change in todo:

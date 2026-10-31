@@ -22,6 +22,7 @@ from regtracker.enrich.enrich import (
     changed_passages,
     enrich_pending,
     load_prompt,
+    read_change_ids,
 )
 from regtracker.enrich.llm_client import (
     BudgetExceededError,
@@ -31,6 +32,7 @@ from regtracker.enrich.llm_client import (
     TokenThrottle,
     _WaitRetryAfter,
 )
+from regtracker.enrich.schemas import ChangeAnalysis
 
 FIXTURES = Path(__file__).parent / "fixtures" / "xhtml"
 MODEL = "test/model"
@@ -342,3 +344,31 @@ def test_auth_error_stops_the_run(fixture_con: duckdb.DuckDBPyConnection, tmp_pa
     )
     assert report.stopped_reason is not None and report.succeeded == 0
     assert fixture_con.execute("SELECT count(*) FROM enrichments").fetchone() == (0,)
+
+
+@pytest.mark.parametrize("version", ["v1", "v2"])
+def test_prompt_examples_match_the_output_schema(version: str) -> None:
+    """A few-shot example the validator would reject teaches the model a wrong format."""
+    lines = [line for line in load_prompt(version).splitlines() if line.startswith("JSON: ")]
+    assert len(lines) >= 3
+    for line in lines:
+        ChangeAnalysis.model_validate(json.loads(line.removeprefix("JSON: ")))
+
+
+def test_batch_can_be_limited_to_listed_changes(
+    fixture_con: duckdb.DuckDBPyConnection, tmp_path: Path
+) -> None:
+    ids = [r[0] for r in fixture_con.execute("SELECT change_id FROM changes LIMIT 3").fetchall()]
+    csv_file = tmp_path / "labeled.csv"
+    csv_file.write_text("change_id,impact\n" + "".join(f"{i},low\n" for i in ids), "utf-8")
+    txt_file = tmp_path / "ids.txt"
+    txt_file.write_text("\n".join(ids[:2]) + "\n\n", "utf-8")
+    assert read_change_ids(csv_file) == ids
+    assert read_change_ids(txt_file) == ids[:2]
+
+    llm = make_llm(fixture_con, FakeOpenAI(), tmp_path)
+    report = enrich_pending(fixture_con, llm, CONFIG, MODEL, change_ids=read_change_ids(csv_file))
+    assert report.succeeded == 3
+    enriched = {r[0] for r in fixture_con.execute("SELECT change_id FROM enrichments").fetchall()}
+    assert enriched == set(ids)
+    assert enrich_pending(fixture_con, llm, CONFIG, MODEL, change_ids=[]).pending == 0

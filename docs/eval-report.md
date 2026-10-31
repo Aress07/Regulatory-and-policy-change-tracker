@@ -128,7 +128,10 @@ validation-retry path), and invalid answers were cached (now never cached).
    sector slots. In 19 of 37 labeled changes the label is `telecom` and the model said `all`: it
    reads "applies regardless of sector" as "applies to everyone in the instrument's scope", while
    the labeling guide treats a telecom-only directive as `telecom`. Fix: prompt `v2` stating that
-   sector-specific instruments take their sector. Not run yet (budget).
+   sector-specific instruments take their sector. Written as `src/regtracker/enrich/prompts/v2.md`
+   (with invented impact examples for removed obligations and procedural changes) but not run yet
+   (budget). Because v2 was written after seeing v1's errors on these draft labels, its score on
+   them will be a tuned result, not a blind one.
 2. **Impact: central tendency.** The model predicts `medium` for 57 of 82 changes. It upgrades
    procedural or wording changes to `medium` (8 low -> medium) and rates 6 changes `medium` that
    the labels call `high`. Its rationales for those 6 correctly name the trigger ("creates new
