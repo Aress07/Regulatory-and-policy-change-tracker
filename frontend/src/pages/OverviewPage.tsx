@@ -147,7 +147,7 @@ export default function OverviewPage() {
                   />
                   <Legend iconType="circle" wrapperStyle={{ fontSize: 12 }} />
                   {types.map((t) => (
-                    <Bar key={t} dataKey={t} stackId="a" fill={TYPE_COLORS[t] ?? "#64748b"} barSize={18} />
+                    <Bar key={t} dataKey={t} stackId="a" isAnimationActive={false} fill={TYPE_COLORS[t] ?? "#64748b"} barSize={18} />
                   ))}
                 </BarChart>
               </ResponsiveContainer>

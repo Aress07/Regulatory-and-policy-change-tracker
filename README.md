@@ -8,7 +8,11 @@ article. Built entirely on free infrastructure.
 > **Not legal advice.** Summaries, tags and answers are AI-generated and can be wrong. Always check
 > the official text on EUR-Lex.
 
-<!-- Screenshot / GIF of the web app goes here (docs/img/app.png). -->
+![Overview page: KPIs, changes per instrument and the latest high-impact changes](docs/img/app.png)
+
+| Change detail: deterministic diff with an AI summary | Topic trends |
+|---|---|
+| ![Change detail page](docs/img/change-detail.png) | ![Topic trends page](docs/img/trends.png) |
 
 ## Architecture
 
@@ -44,7 +48,8 @@ Details: [docs/architecture.md](docs/architecture.md) · decisions: [docs/decisi
   enough evidence" instead of guessing.
 - **Web app** (React + TypeScript, served by FastAPI): overview, change timeline with filters
   that live in the URL, side-by-side diff with AI summary,
-  topic trends, "since I last looked", Ask, pipeline health. AI output is always badged.
+  topic trends, "since I last looked", Ask, pipeline health; light and dark themes.
+  AI output is always badged.
 - **Operations**: dbt models with tests and source freshness, Dagster assets with asset checks,
   weekly GitHub Actions run publishing a snapshot to Hugging Face, RSS feed of notable changes.
 
@@ -136,11 +141,16 @@ EUR-Lex), fetched via content negotiation on `publications.europa.eu/resource/ce
 2. In GitHub: repository variable `HF_DATASET_REPO`, variable `USER_AGENT`, secret `HF_TOKEN`.
    The weekly workflow (`.github/workflows/ingest.yml`) then publishes the snapshot.
 3. After local enrichment and indexing: `HF_DATASET_REPO=... HF_TOKEN=... regtracker snapshot --upload`.
-4. Hugging Face Spaces (Docker SDK, free): create a Space, push this repository to it (the
-   `Dockerfile` builds the React app and the API into one image on port 7860), and set Space
-   secrets `HF_DATASET_REPO` (plus `HF_TOKEN` if the dataset is private) and optionally
-   `LLM_API_KEY` for the Ask page. Without a key, Ask shows retrieved passages only.
-   Locally: `docker build -t regtracker . && docker run -p 7860:7860 -e HF_DATASET_REPO=... regtracker`.
+4. Hugging Face Spaces (Docker SDK, free): create an empty Docker Space, then set the GitHub
+   repository variable `HF_SPACE_REPO` (e.g. `you/eu-reg-tracker`). After CI passes on `main`,
+   `.github/workflows/deploy-space.yml` uploads the image sources with the Space's README header
+   (it can also be run by hand from the Actions tab). The `Dockerfile` builds the React app and the
+   API into one image on port 7860.
+5. In the Space settings, add the variable `HF_DATASET_REPO` (plus the secret `HF_TOKEN` if the
+   dataset is private) and optionally the secret `LLM_API_KEY` for the Ask page. Without a key,
+   Ask shows retrieved passages only.
+
+Locally: `docker build -t regtracker . && docker run -p 7860:7860 -e HF_DATASET_REPO=... regtracker`.
 
 Development: `make api` (FastAPI with reload on :8000) and `make frontend-dev` (Vite on :5173,
 proxying `/api`). See [ADR-004](docs/decisions/004-fastapi-react-instead-of-streamlit.md).

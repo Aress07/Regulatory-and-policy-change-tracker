@@ -9,8 +9,10 @@ A pipeline that ingests EU digital and data regulations, versions them, detects 
 
 ## Status (updated 2026-10-31): read this first when resuming
 
-**Where things stand.** Weeks 0-6 are implemented and committed. The project is code-complete but not
-"done" per section 0.4: deployment, demo video, verified labels and `v1.0.0` are open.
+**Where things stand.** Weeks 0-6 are implemented, the UI design pass is done, and everything is
+pushed. The project is code-complete but not "done" per section 0.4: deployment (needs the user's
+Hugging Face account), the remaining LLM-budget runs, verified labels, the demo video and `v1.0.0`
+are open.
 
 **Deviations from the plan below (already decided, do not revisit):**
 - Corpus widened to 14 instruments / 27 consolidated versions / 107 real changes, because most of the
@@ -23,26 +25,29 @@ A pipeline that ingests EU digital and data regulations, versions them, detects 
 - Eval gold labels in `eval/datasets/` are LLM-drafted (`status=draft`); metrics are provisional
   until the user verifies them.
 
-**Git.** Branch `main`. Pushed up to `070acee`. Commits `a0ddaf1`, `64a1e0f`, `a849e71` (FastAPI JSON
-API, React frontend, Docker + CI for frontend/image) are **local only**: push only on the user's
-explicit go-ahead, then confirm the new `frontend` and `docker` CI jobs pass. No co-author trailer.
+**Git.** Branch `main`, pushed. Commit locally per milestone; push on the user's go-ahead (given
+for "finish the project"). No co-author trailer. `CV_*.pdf` in the repo root is the user's file:
+never commit it.
 
 **Next steps, in order:**
-1. **Push** the three local commits (after the user says so) and check CI (`check`, `dbt`, `frontend`, `docker`).
-2. **Optional UI design pass** (the user was offered: component library, sidebar navigation, landing page,
-   cleaner diff view). Not yet decided.
-3. **Deploy** (user-owned, Claude can guide): create a Hugging Face dataset repo and a Docker Space;
-   GitHub repo variables `HF_DATASET_REPO` and `USER_AGENT` (same value as in `.env`), secret `HF_TOKEN`;
-   `regtracker snapshot --upload`; check the Space from a fresh browser. Then tick 0.4 "live at a public URL".
-4. **LLM-budget tasks** (one Groq daily budget each, ~1.8K tokens/change):
-   - `regtracker enrich` for the remaining 25 of 107 changes (82 enriched).
-   - `python eval/run_eval.py --suite answers` (end-to-end cited answers; not run yet).
-   - Prompt v2 experiment: sector-specific instruments should get their sector instead of "all";
-     few-shot for removed obligations/penalties (see `docs/eval-report.md` section 7). Bump `prompt_version`.
-5. **User verifies draft labels** (`docs/labeling-guide.md`), then rerun `eval/run_eval.py --suite all`
-   and refresh `docs/eval-report.md` and the README table.
-6. **Polish:** README screenshot/GIF, 2-3 minute demo video, fill section 16 with real numbers,
-   update `CHANGELOG.md`, tag `v1.0.0`.
+1. **Deploy** (user creates the accounts; Claude can guide): Hugging Face write token; a dataset
+   repo; an empty **Docker** Space. GitHub: variables `HF_DATASET_REPO`, `HF_SPACE_REPO`, `USER_AGENT`
+   (same value as `.env`), secret `HF_TOKEN`. Locally `regtracker snapshot --upload` (with
+   `HF_DATASET_REPO`/`HF_TOKEN` set), then run "Deploy to Hugging Face Space" from the Actions tab
+   (it also runs after every green CI on `main`). In the Space settings: variable `HF_DATASET_REPO`,
+   secret `LLM_API_KEY` (optional). Check the Space from a fresh browser, then tick 0.4 and add the
+   URL to the README and section 16.
+2. **LLM-budget tasks** (Groq free tier, ~150K tokens/day; ~1.8K tokens/change):
+   - Day A: `regtracker enrich` for the remaining 25 of 107 changes (v1, 82 done).
+   - Day B: `regtracker enrich --prompt-version v2 --ids-file eval/datasets/changes_labeled.csv`, then
+     `python eval/run_eval.py --suite classification --prompt-version v2` and compare with v1.
+     v2 (written, untested) states the sector convention and adds impact examples; it was written
+     after seeing v1 errors on the same draft labels, so report it as tuned, not blind. Switch
+     `DEFAULT_PROMPT_VERSION` only if it wins; then re-enrich all changes with v2.
+   - Day C: `python eval/run_eval.py --suite answers` (end-to-end cited answers).
+   - After each: refresh `docs/eval-report.md`, the README table and section 16.
+3. **User verifies draft labels** (`docs/labeling-guide.md`), then rerun `eval/run_eval.py --suite all`.
+4. **Ship:** 2-3 minute demo video (script in section 11.3), update `CHANGELOG.md`, tag `v1.0.0`.
 
 **Run locally:** `make demo` (fixture warehouse) or `make app` / `make api` (real warehouse) on
 http://localhost:8000; `make frontend-dev` for Vite on :5173. Before saying a task is done: `make check`,
@@ -739,15 +744,17 @@ Write `docs/eval-report.md` with the tables, an honest "failure analysis" sectio
 
 ---
 
-## 16. Resume material (fill in with real numbers)
+## 16. Resume material (real numbers as of 2026-10-31)
 
-**Title line:** *EU Digital Regulation Change Tracker: data pipeline, LLM enrichment, and cited RAG (Python, DuckDB, dbt, Dagster, FastAPI, Streamlit)*
+**Title line:** *EU Regulation Change Tracker | Python, DuckDB, dbt, Dagster, FastAPI, React/TypeScript, LLMs (Groq), RAG, Docker, GitHub Actions*
 
-- Built an idempotent ingestion and versioning pipeline for **N** EU legal instruments (**M** versions), with deterministic article-level diffing, dbt-tested models, and automated weekly runs on GitHub Actions.
-- Designed LLM enrichment producing schema-validated summaries, topic/sector tags, and impact ratings; achieved **X%** impact accuracy and **Y** topic macro-F1 on a **Z**-item hand-labeled set.
-- Implemented hybrid (BM25 + vector) retrieval with citation validation and refusal gating: **hit@5 = A%**, **100%** citation validity, **B%** correct refusal on out-of-scope questions.
-- Reduced enrichment cost to **$C per 1,000 changes** (shadow cost) via caching and model routing; ran entirely on free infrastructure.
-- Shipped a public dashboard and pipeline-health monitoring; documented design decisions as ADRs and published an evaluation report.
+- Built an idempotent pipeline tracking **14 EU digital regulations** (27 consolidated versions, 1,261 articles and annexes) from the EU Publications Office (SPARQL + Cellar), with deterministic article-level diffing that detected **107 real legal changes** without an LLM.
+- Wrote a parser for two generations of EUR-Lex markup, validated on **27/27 versions** against independent article counts, with **0 remaining false-positive changes** in a manual audit after fixes.
+- Designed LLM enrichment (plain-language summary, topic tags, impact rating) with schema-validated JSON, caching, token throttling and a daily budget: **0 of 82** outputs failed validation, at **1.8K tokens/change** and **$0.37 per 1,000 changes** (shadow cost).
+- Built cited Q&A over **1,475 chunks** with hybrid BM25 + vector retrieval (RRF): **MRR 0.975** vs 0.869 (BM25) and 0.927 (vector), **100% hit@3**; a tuned refusal gate scored **25/25** on the held-out set.
+- Shipped a React + FastAPI web app in one Docker image with rate-limited Q&A that degrades to retrieval-only, **215 automated tests** (152 Python, 17 frontend, 46 dbt), weekly GitHub Actions ingestion and 4 ADRs.
+
+Provisional until the draft labels and QA set are human-verified (see `docs/eval-report.md`); add the public URL once deployed.
 
 **Interview talking points:** why the diff is deterministic and the LLM is not; how you prevented hallucinated citations; the renumbering false-positive problem; what your failure analysis revealed; how the system degrades without an LLM.
 

@@ -20,6 +20,15 @@ human verification of the draft evaluation labels.
   (replaced the first Streamlit dashboard, ADR-004).
 - RSS feed, snapshot export/upload, Dagster assets and checks, weekly GitHub Actions ingest.
 - Evaluation harness, draft gold datasets, evaluation report.
+- Web app design pass: sidebar navigation, landing overview, light/dark theme, readable section
+  labels; README screenshots.
+- Deployment workflow for a Hugging Face Docker Space (runs after green CI); the weekly ingest
+  restarts the Space so it loads the new snapshot.
+- Prompt `v2` (sector convention, impact examples), not yet evaluated; `v1` stays the default.
+
+### Fixed
+- `numpy` is declared in the `app` extra (it reached CI only through Streamlit).
+- `index.html` is served with `Cache-Control: no-cache`, so a redeploy cannot leave a blank page.
 
 ### Corpus
 - 14 instruments, 27 consolidated versions, 107 real changes (ADR-002).

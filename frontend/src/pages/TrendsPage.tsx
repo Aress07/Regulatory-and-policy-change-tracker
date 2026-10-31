@@ -70,7 +70,7 @@ export default function TrendsPage() {
                 formatter={(v: string) => v.replace(/_/g, " ")}
               />
               {topics.map((t, i) => (
-                <Bar key={t} dataKey={t} stackId="a" fill={PALETTE[i % PALETTE.length]} maxBarSize={48} />
+                <Bar key={t} dataKey={t} stackId="a" isAnimationActive={false} fill={PALETTE[i % PALETTE.length]} maxBarSize={48} />
               ))}
             </BarChart>
           </ResponsiveContainer>
